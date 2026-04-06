@@ -9,7 +9,7 @@ handles Home Assistant ingress on port `8099`.
 - A Salt master listening on TCP `4505` and `4506`
 - SaltGUI and `salt-api` on TCP `3333`
 - Home Assistant sidebar access through ingress
-- Editable Salt state and pillar trees in `/share/salt`
+- Editable Salt state and pillar trees in `/srv`
 
 ## Installation
 
@@ -22,7 +22,7 @@ handles Home Assistant ingress on port `8099`.
 
 ## Configuration
 
-Example configuration:
+Sample configuration:
 
 ```yaml
 log_level: info
@@ -56,20 +56,24 @@ disabled unless you intentionally want an open enrollment model.
 
 The add-on creates and uses these paths:
 
-- `/share/salt/states`
-- `/share/salt/pillars`
+- `/srv/salt`
+- `/srv/pillar`
 - `/data/pki/master`
 - `/data/cache/master`
 
 If they do not exist yet, the add-on creates them automatically. It also writes
 starter files:
 
-- `/share/salt/states/top.sls`
-- `/share/salt/states/example/init.sls`
-- `/share/salt/pillars/top.sls`
+- `/srv/salt/top.sls`
+- `/srv/salt/example/init.sls`
+- `/srv/pillar/top.sls`
 
-This makes the state tree editable from Home Assistant tools that can access
-`/share`.
+Inside the container, Salt uses the standard `/srv/salt` and `/srv/pillar`
+paths. Those are backed by Home Assistant's writable `share` mapping, so on the
+host you edit:
+
+- `/share/salt`
+- `/share/pillar`
 
 ## Access Paths
 

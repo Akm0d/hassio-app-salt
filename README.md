@@ -9,7 +9,8 @@ The add-on:
 - exposes the Salt master transport on ports `4505` and `4506`
 - uses Home Assistant ingress for the sidebar panel
 - stores master PKI and cache in `/data`
-- stores editable states and pillars in `/share/salt`
+- uses standard Salt paths `/srv/salt` and `/srv/pillar`
+- backs those paths with Home Assistant's host-editable `share` storage
 
 Those ports are fixed so the add-on matches standard Salt defaults.
 

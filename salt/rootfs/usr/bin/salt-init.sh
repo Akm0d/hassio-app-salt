@@ -48,27 +48,27 @@ ensure_gui_user() {
 }
 
 ensure_share_tree() {
-    mkdir -p /share/salt/states/example
-    mkdir -p /share/salt/pillars
+    mkdir -p /srv/salt/example
+    mkdir -p /srv/pillar
 
-    if [[ ! -f /share/salt/states/top.sls ]]; then
-        cat <<'EOF' >/share/salt/states/top.sls
+    if [[ ! -f /srv/salt/top.sls ]]; then
+        cat <<'EOF' >/srv/salt/top.sls
 base:
   '*':
     - example
 EOF
     fi
 
-    if [[ ! -f /share/salt/states/example/init.sls ]]; then
-        cat <<'EOF' >/share/salt/states/example/init.sls
+    if [[ ! -f /srv/salt/example/init.sls ]]; then
+        cat <<'EOF' >/srv/salt/example/init.sls
 salt_example_state:
   test.succeed_without_changes:
     - name: Salt is connected to this Home Assistant master.
 EOF
     fi
 
-    if [[ ! -f /share/salt/pillars/top.sls ]]; then
-        cat <<'EOF' >/share/salt/pillars/top.sls
+    if [[ ! -f /srv/pillar/top.sls ]]; then
+        cat <<'EOF' >/srv/pillar/top.sls
 base:
   '*': []
 EOF
@@ -96,10 +96,10 @@ fileserver_backend:
   - roots
 file_roots:
   base:
-    - /share/salt/states
+    - /srv/salt
 pillar_roots:
   base:
-    - /share/salt/pillars
+    - /srv/pillar
 netapi_enable_clients:
   - local
   - local_async
@@ -182,8 +182,8 @@ main() {
     write_proxy_config
     seed_saltgui_files
 
-    bashio::log.info "Salt state tree: /share/salt/states"
-    bashio::log.info "Salt pillar tree: /share/salt/pillars"
+    bashio::log.info "Salt state tree: /srv/salt (host path: /share/salt)"
+    bashio::log.info "Salt pillar tree: /srv/pillar (host path: /share/pillar)"
     bashio::log.info "SaltGUI and salt-api will listen on port 3333"
     bashio::log.info "Salt master ports: 4505/4506"
     bashio::log.info "SaltGUI login user: ${gui_username}"

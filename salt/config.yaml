@@ -18,7 +18,9 @@ arch:
   - aarch64
   - amd64
 map:
-  - share:rw
+  - type: share
+    read_only: false
+    path: /srv
 ports:
   3333/tcp: 3333
   4505/tcp: 4505
