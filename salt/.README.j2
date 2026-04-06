@@ -1,0 +1,24 @@
+# Home Assistant Add-on: Salt
+
+[![Release][release-shield]][release]
+
+Salt master and SaltGUI add-on for Home Assistant.
+
+## About
+
+This add-on runs:
+
+- `salt-master` on TCP `4505` and `4506`
+- `salt-api` with SaltGUI on TCP `3333`
+- a small ingress proxy for the Home Assistant sidebar
+
+The add-on stores:
+
+- editable states in `/share/salt/states`
+- editable pillars in `/share/salt/pillars`
+- Salt master PKI and cache in `/data`
+
+See the add-on documentation for setup and configuration details.
+
+[release-shield]: https://img.shields.io/badge/version-{{ version }}-blue.svg
+[release]: {{ repo }}/tree/{{ version }}

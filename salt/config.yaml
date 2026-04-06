@@ -1,0 +1,39 @@
+---
+name: Salt
+version: 0.1
+slug: salt
+description: Run a Salt master with SaltGUI for Home Assistant
+url: https://github.com/Akm0d/hassio-app-salt
+startup: services
+boot: auto
+init: false
+ingress: true
+ingress_port: 8099
+ingress_entry: /
+panel_icon: mdi:shaker-outline
+panel_title: Salt
+webui: http://[HOST]:[PORT:3333]/
+watchdog: http://127.0.0.1:3333/
+arch:
+  - aarch64
+  - amd64
+map:
+  - share:rw
+ports:
+  3333/tcp: 3333
+  4505/tcp: 4505
+  4506/tcp: 4506
+ports_description:
+  3333/tcp: SaltGUI and salt-api
+  4505/tcp: Salt publish port
+  4506/tcp: Salt return port
+options:
+  log_level: info
+  gui_username: saltadmin
+  gui_password: ""
+  auto_accept: false
+schema:
+  log_level: list(trace|debug|info|notice|warning|error|fatal)
+  gui_username: str
+  gui_password: password
+  auto_accept: bool
