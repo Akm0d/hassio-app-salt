@@ -16,6 +16,10 @@ wait_for_master() {
     done
 }
 
+api_is_listening() {
+    bash -c ":</dev/tcp/127.0.0.1/3333" >/dev/null 2>&1
+}
+
 cleanup_stale_pidfile() {
     if [[ -f "${API_PIDFILE}" ]]; then
         local pid
@@ -29,24 +33,19 @@ cleanup_stale_pidfile() {
     fi
 }
 
-wait_for_api_pid() {
+wait_for_api_listener() {
     local deadline=$((SECONDS + 15))
 
     while (( SECONDS < deadline )); do
-        if [[ -f "${API_PIDFILE}" ]]; then
-            local pid
-
-            pid="$(cat "${API_PIDFILE}" 2>/dev/null || true)"
-            if [[ -n "${pid}" ]] && kill -0 "${pid}" >/dev/null 2>&1; then
-                bashio::log.info "salt-api is running as pid ${pid}"
-                return 0
-            fi
+        if api_is_listening; then
+            bashio::log.info "salt-api is listening on 127.0.0.1:3333"
+            return 0
         fi
 
         sleep 1
     done
 
-    bashio::log.error "salt-api did not create a live pidfile at ${API_PIDFILE}"
+    bashio::log.error "salt-api did not start listening on 127.0.0.1:3333"
     return 1
 }
 
@@ -78,13 +77,10 @@ main() {
     fi
 
     trap shutdown_api TERM INT
-    wait_for_api_pid
+    wait_for_api_listener
 
     while true; do
-        local pid
-
-        pid="$(cat "${API_PIDFILE}" 2>/dev/null || true)"
-        if [[ -z "${pid}" ]] || ! kill -0 "${pid}" >/dev/null 2>&1; then
+        if ! api_is_listening; then
             bashio::log.error "salt-api exited unexpectedly"
             return 1
         fi
