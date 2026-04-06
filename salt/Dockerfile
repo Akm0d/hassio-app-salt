@@ -10,7 +10,9 @@ COPY rootfs /
 # Setup base
 RUN apk add --no-cache \
     lighttpd \
+    py3-cherrypy \
     py3-pip \
+    py3-ws4py \
     shadow \
     salt-lts-api \
     salt-lts-master \

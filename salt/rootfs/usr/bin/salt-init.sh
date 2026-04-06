@@ -110,6 +110,8 @@ rest_cherrypy:
   port: 3333
   disable_ssl: true
   debug: false
+  log_access_file: /dev/stdout
+  log_error_file: /dev/stderr
   app: /opt/saltgui/index.html
   static: /opt/saltgui/static
   static_path: /static
