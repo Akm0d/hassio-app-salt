@@ -228,6 +228,16 @@ write_ingress_bootstrap() {
   <script>
     const statusEl = document.getElementById("status");
 
+    function ingressBaseUrl() {
+      const url = new URL(window.location.href);
+      url.search = "";
+      url.hash = "";
+      if (!url.pathname.endsWith("/")) {
+        url.pathname = `${url.pathname}/`;
+      }
+      return url;
+    }
+
     async function fail(response) {
       try {
         const payload = await response.json();
@@ -239,8 +249,12 @@ write_ingress_bootstrap() {
     }
 
     async function boot() {
+      const baseUrl = ingressBaseUrl();
+      const authUrl = new URL("__ha_salt_auth", baseUrl);
+      const appUrl = new URL("app/", baseUrl);
+
       try {
-        const response = await fetch("./__ha_salt_auth", {
+        const response = await fetch(authUrl, {
           credentials: "same-origin",
           cache: "no-store"
         });
@@ -248,7 +262,7 @@ write_ingress_bootstrap() {
           await fail(response);
           return;
         }
-        window.location.replace("./app/");
+        window.location.replace(appUrl);
       } catch (_error) {
         statusEl.textContent = "Could not reach the Salt ingress bridge.";
         statusEl.classList.add("error");
