@@ -5,9 +5,10 @@ SaltGUI.
 
 The add-on:
 
-- serves SaltGUI and `salt-api` on port `3333`
+- serves SaltGUI through an admin-only Home Assistant ingress panel
+- signs in authenticated Home Assistant admin users automatically
+- runs `salt-api` internally on port `3333`
 - exposes the Salt master transport on ports `4505` and `4506`
-- uses Home Assistant ingress for the sidebar panel
 - stores master PKI and cache in `/data`
 - uses standard Salt paths `/srv/salt` and `/srv/pillar`
 - backs those paths with Home Assistant's host-editable `share` storage

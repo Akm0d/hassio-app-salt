@@ -4,13 +4,13 @@ configuration:
     name: Log level
     description: Control how much detail Salt writes to the add-on log.
   gui_username:
-    name: GUI username
-    description: Linux user created inside the add-on for SaltGUI login.
+    name: GUI service username
+    description: Linux service account used for automatic SaltGUI ingress login.
   gui_password:
     name: GUI password
     description: >-
-      Password for the SaltGUI login user. Leave empty once to auto-generate
-      one and print it in the add-on log.
+      Password for the SaltGUI service account. Leave empty once to
+      auto-generate one and print it in the add-on log.
   auto_accept:
     name: Auto accept minion keys
     description: Automatically accept new Salt minion keys.

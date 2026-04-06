@@ -12,8 +12,7 @@ ingress_port: 8099
 ingress_entry: /
 panel_icon: mdi:shaker-outline
 panel_title: Salt
-webui: http://[HOST]:[PORT:3333]/
-watchdog: http://[HOST]:[PORT:3333]/
+panel_admin: true
 arch:
   - aarch64
   - amd64
@@ -22,11 +21,9 @@ map:
     read_only: false
     path: /srv
 ports:
-  3333/tcp: 3333
   4505/tcp: 4505
   4506/tcp: 4506
 ports_description:
-  3333/tcp: SaltGUI and salt-api
   4505/tcp: Salt publish port
   4506/tcp: Salt return port
 options:
