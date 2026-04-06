@@ -21,6 +21,6 @@ main() {
 
     wait_for_master
     bashio::log.info "Starting salt-api on port 3333"
-    exec salt-api --disable-keepalive -c /etc/salt -l "${log_level}"
+    exec salt-api -c /etc/salt -l "${log_level}"
 }
 main "$@"
