@@ -13,7 +13,7 @@ ingress_entry: /
 panel_icon: mdi:shaker-outline
 panel_title: Salt
 webui: http://[HOST]:[PORT:3333]/
-watchdog: http://127.0.0.1:3333/
+watchdog: http://[HOST]:[PORT:3333]/
 arch:
   - aarch64
   - amd64
