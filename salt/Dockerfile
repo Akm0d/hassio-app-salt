@@ -10,6 +10,7 @@ COPY rootfs /
 # Setup base
 RUN apk add --no-cache \
     lighttpd \
+    py3-pip \
     shadow \
     salt-lts-api \
     salt-lts-master \
@@ -18,6 +19,7 @@ RUN apk add --no-cache \
  && mkdir -p /opt /var/cache/lighttpd /run/lighttpd \
  && tar -xzf /tmp/saltgui.tar.gz -C /tmp \
  && mv "/tmp/SaltGUI-${SALTGUI_REF}/saltgui" /opt/saltgui \
+ && python3 -m pip install --no-cache-dir backports.tarfile \
  && rm -rf "/tmp/SaltGUI-${SALTGUI_REF}" /tmp/saltgui.tar.gz
 
 # Build arguments
@@ -36,11 +38,11 @@ LABEL \
     io.hass.arch="${BUILD_ARCH}" \
     io.hass.type="addon" \
     io.hass.version=${BUILD_VERSION} \
-    maintainer="Akm0d" \
+    maintainer="Tyler Levy Conde <yonstib@gmail.com>" \
     org.opencontainers.image.title="${BUILD_NAME}" \
     org.opencontainers.image.description="${BUILD_DESCRIPTION}" \
-    org.opencontainers.image.vendor="Akm0d" \
-    org.opencontainers.image.authors="Akm0d" \
+    org.opencontainers.image.vendor="Tyler Levy Conde" \
+    org.opencontainers.image.authors="Tyler Levy Conde <yonstib@gmail.com>" \
     org.opencontainers.image.licenses="MIT" \
     org.opencontainers.image.url="https://github.com/Akm0d/hassio-app-salt" \
     org.opencontainers.image.source="https://github.com/${BUILD_REPOSITORY}" \

@@ -7,6 +7,8 @@
 
 set -euo pipefail
 
+readonly SALT_GUI_USERNAME="saltadmin"
+
 generate_password() {
     local password=""
 
@@ -48,36 +50,26 @@ ensure_gui_user() {
 }
 
 ensure_share_tree() {
-    mkdir -p /srv/salt/example
+    mkdir -p /srv/salt
     mkdir -p /srv/pillar
 
     if [[ ! -f /srv/salt/top.sls ]]; then
         cat <<'EOF' >/srv/salt/top.sls
-base:
-  '*':
-    - example
-EOF
-    fi
-
-    if [[ ! -f /srv/salt/example/init.sls ]]; then
-        cat <<'EOF' >/srv/salt/example/init.sls
-salt_example_state:
-  test.succeed_without_changes:
-    - name: Salt is connected to this Home Assistant master.
+# Define your top file targets here.
+base: {}
 EOF
     fi
 
     if [[ ! -f /srv/pillar/top.sls ]]; then
         cat <<'EOF' >/srv/pillar/top.sls
-base:
-  '*': []
+# Define your pillar top file targets here.
+base: {}
 EOF
     fi
 }
 
 write_master_config() {
-    local gui_username="${1}"
-    local auto_accept="${2}"
+    local auto_accept="${1}"
 
     cat <<EOF >/etc/salt/master
 interface: 0.0.0.0
@@ -92,6 +84,7 @@ token_dir: /data/tokens
 sqlite_queue_dir: /data/queues
 pidfile: /run/salt-master.pid
 sock_dir: /run/salt/master
+state_events: True
 fileserver_backend:
   - roots
 file_roots:
@@ -107,7 +100,7 @@ netapi_enable_clients:
   - wheel
 external_auth:
   pam:
-    ${gui_username}:
+    ${SALT_GUI_USERNAME}:
       - .*
       - '@runner'
       - '@wheel'
@@ -278,23 +271,21 @@ main() {
     local auto_accept
     local gui_password
     local gui_password_effective
-    local gui_username
 
     auto_accept="$(bashio::config 'auto_accept')"
     gui_password="$(bashio::config 'gui_password')"
-    gui_username="$(bashio::config 'gui_username')"
 
     bashio::log.info "Preparing Salt master configuration"
     mkdir -p /data/pki/master /data/cache/master /data/tokens /data/queues /run/salt/master /opt/ha-salt-ingress
 
     ensure_share_tree
     gui_password_effective="$(ensure_gui_password "${gui_password}")"
-    ensure_gui_user "${gui_username}" "${gui_password_effective}"
-    write_master_config "${gui_username}" "${auto_accept}"
+    ensure_gui_user "${SALT_GUI_USERNAME}" "${gui_password_effective}"
+    write_master_config "${auto_accept}"
     write_proxy_config
     write_ingress_bootstrap
     seed_saltgui_files
-    SALT_GUI_USERNAME="${gui_username}" SALT_GUI_PASSWORD="${gui_password_effective}" python3 - <<'EOF'
+    SALT_GUI_USERNAME="${SALT_GUI_USERNAME}" SALT_GUI_PASSWORD="${gui_password_effective}" python3 - <<'EOF'
 import json
 import os
 from pathlib import Path
@@ -315,10 +306,10 @@ EOF
     bashio::log.info "SaltGUI is available through the admin-only Home Assistant sidebar panel"
     bashio::log.info "salt-api will listen on internal port 3333"
     bashio::log.info "Salt master ports: 4505/4506"
-    bashio::log.info "SaltGUI service account: ${gui_username}"
+    bashio::log.info "SaltGUI service account: ${SALT_GUI_USERNAME}"
 
     if [[ -z "${gui_password}" ]]; then
-        bashio::log.notice "Generated SaltGUI password for ${gui_username}: ${gui_password_effective}"
+        bashio::log.notice "Generated SaltGUI password for ${SALT_GUI_USERNAME}: ${gui_password_effective}"
     fi
 }
 main "$@"

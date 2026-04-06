@@ -9,9 +9,10 @@ The add-on:
 - signs in authenticated Home Assistant admin users automatically
 - runs `salt-api` internally on port `3333`
 - exposes the Salt master transport on ports `4505` and `4506`
-- stores master PKI and cache in `/data`
+- persists Salt PKI, cache, job data, and tokens in `/data`
 - uses standard Salt paths `/srv/salt` and `/srv/pillar`
-- backs those paths with Home Assistant's host-editable `share` storage
+- backs those paths with Home Assistant's host-editable `share` storage as
+  `/share/salt` and `/share/pillar`
 
 Those ports are fixed so the add-on matches standard Salt defaults.
 

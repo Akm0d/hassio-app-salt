@@ -1,8 +1,8 @@
 ---
 name: Salt
-version: 0.1
+version: 0.2
 slug: salt
-description: Run a Salt master with SaltGUI for Home Assistant
+description: Run a Salt master with admin-only SaltGUI ingress and host-editable state trees
 url: https://github.com/Akm0d/hassio-app-salt
 startup: services
 boot: auto
@@ -28,11 +28,9 @@ ports_description:
   4506/tcp: Salt return port
 options:
   log_level: info
-  gui_username: saltadmin
   gui_password: ""
   auto_accept: false
 schema:
   log_level: list(trace|debug|info|notice|warning|error|fatal)
-  gui_username: str
   gui_password: password
   auto_accept: bool

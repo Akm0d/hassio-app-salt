@@ -3,9 +3,6 @@ configuration:
   log_level:
     name: Log level
     description: Control how much detail Salt writes to the add-on log.
-  gui_username:
-    name: GUI service username
-    description: Linux service account used for automatic SaltGUI ingress login.
   gui_password:
     name: GUI password
     description: >-

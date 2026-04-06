@@ -1,8 +1,9 @@
 # Home Assistant Add-on: Salt
 
 This add-on runs a Salt master together with SaltGUI. SaltGUI is published
-through Home Assistant ingress, and authenticated Home Assistant admin users
-are automatically signed in to SaltGUI by the add-on.
+through Home Assistant ingress, authenticated Home Assistant admin users are
+automatically signed in, and the Salt state tree stays editable from the Home
+Assistant host.
 
 ## What It Provides
 
@@ -10,16 +11,19 @@ are automatically signed in to SaltGUI by the add-on.
 - SaltGUI through an admin-only Home Assistant sidebar panel
 - Automatic SaltGUI sign-in for authenticated Home Assistant admin users
 - Internal `salt-api` service on TCP `3333`
-- Editable Salt state and pillar trees in `/srv`
+- Editable Salt state and pillar trees at container `/srv/salt` and `/srv/pillar`
+- Persistent Salt PKI, cache, job data, and tokens in `/data`
 
 ## Installation
 
 1. Install the add-on.
 2. Set a `gui_password`, or leave it blank once and read the generated password
    from the add-on log.
-3. Start the add-on.
+3. Start the add-on. The Salt master starts automatically as part of add-on
+   startup.
 4. Open the Salt sidebar panel in Home Assistant as an admin user.
 5. The add-on signs you in to SaltGUI automatically.
+6. Point Salt minions at the Home Assistant host on ports `4505` and `4506`.
 
 ## Configuration
 
@@ -27,7 +31,6 @@ Sample configuration:
 
 ```yaml
 log_level: info
-gui_username: saltadmin
 gui_password: ""
 auto_accept: false
 ```
@@ -35,12 +38,6 @@ auto_accept: false
 ### Option: `log_level`
 
 Controls Salt master and API log verbosity.
-
-### Option: `gui_username`
-
-Linux service account created inside the add-on for SaltGUI ingress login. Salt's
-`external_auth` is configured for this user with full SaltGUI-compatible
-permissions.
 
 ### Option: `gui_password`
 
@@ -53,6 +50,26 @@ to the log.
 If enabled, the Salt master automatically accepts new minion keys. Leave this
 disabled unless you intentionally want an open enrollment model.
 
+## Fixed Master Defaults
+
+This add-on intentionally keeps the core Salt master layout opinionated so the
+Home Assistant integration stays predictable:
+
+- `publish_port: 4505`
+- `ret_port: 4506`
+- `file_roots: /srv/salt`
+- `pillar_roots: /srv/pillar`
+- `pki_dir: /data/pki/master`
+- `cachedir: /data/cache/master`
+- `token_dir: /data/tokens`
+- `sqlite_queue_dir: /data/queues`
+- `state_events: True`
+- internal `salt-api` / SaltGUI service on `127.0.0.1:3333`
+
+Only `log_level`, `gui_password`, and `auto_accept` are exposed in the add-on
+UI. Everything else uses these static defaults so minion connectivity, ingress,
+and host-editable state paths stay consistent.
+
 ## File Layout
 
 The add-on creates and uses these paths:
@@ -61,12 +78,13 @@ The add-on creates and uses these paths:
 - `/srv/pillar`
 - `/data/pki/master`
 - `/data/cache/master`
+- `/data/tokens`
 
 If they do not exist yet, the add-on creates them automatically. It also writes
-starter files:
+stub top files so the directories are ready to edit from the host without
+shipping example states:
 
 - `/srv/salt/top.sls`
-- `/srv/salt/example/init.sls`
 - `/srv/pillar/top.sls`
 
 Inside the container, Salt uses the standard `/srv/salt` and `/srv/pillar`
@@ -75,6 +93,9 @@ host you edit:
 
 - `/share/salt`
 - `/share/pillar`
+
+The cryptographic material and other Salt runtime data stay private and
+persistent in `/data`.
 
 ## Access Paths
 
@@ -85,6 +106,10 @@ host you edit:
 The SaltGUI HTTP service still runs internally on port `3333`, but it is not
 advertised as the normal user entrypoint. The intended UI path is the admin-only
 Home Assistant panel.
+
+The Salt master ports are published on the Home Assistant host, so minions on
+your LAN can connect without needing access to the add-on's internal Docker
+network.
 
 ## Connecting Minions
 
@@ -101,8 +126,11 @@ Then restart the minion and accept the key from SaltGUI or the Salt CLI.
 - The Home Assistant panel is marked admin-only.
 - Home Assistant ingress identifies the authenticated user and the add-on
   creates a SaltGUI session for that request.
-- The configured GUI service account gets broad SaltGUI-compatible permissions:
+- The built-in SaltGUI service account `saltadmin` gets broad
+  SaltGUI-compatible permissions:
   `.*`, `@runner`, `@wheel`, and `@jobs`.
+- The Salt master publishes on the host's standard `4505` and `4506` ports so
+  LAN minions can connect without needing Docker-internal addressing.
 - Set a strong password before exposing Salt master ports beyond your trusted
   network.
 - `auto_accept: false` is the safer default.
