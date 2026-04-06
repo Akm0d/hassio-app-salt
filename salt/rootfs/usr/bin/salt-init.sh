@@ -82,8 +82,6 @@ pki_dir: /data/pki/master
 cachedir: /data/cache/master
 token_dir: /data/tokens
 sqlite_queue_dir: /data/queues
-api_pidfile: /run/salt-api.pid
-api_logfile: /dev/stderr
 pidfile: /run/salt-master.pid
 sock_dir: /run/salt/master
 state_events: True
