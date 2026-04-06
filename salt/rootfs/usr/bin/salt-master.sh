@@ -12,6 +12,6 @@ main() {
 
     log_level="$(bashio::config 'log_level')"
     bashio::log.info "Starting salt-master on ports 4505/4506"
-    exec salt-master -c /etc/salt -l "${log_level}"
+    exec salt-master --disable-keepalive -c /etc/salt -l "${log_level}"
 }
 main "$@"
