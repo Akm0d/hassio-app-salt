@@ -323,7 +323,7 @@ main() {
     verify_salt_runtime
     write_ingress_bootstrap
     seed_saltgui_files
-    SALT_GUI_USERNAME="${SALT_GUI_USERNAME}" SALT_GUI_PASSWORD="${gui_password_effective}" python3 - <<'EOF'
+    SALT_GUI_USERNAME_ENV="${SALT_GUI_USERNAME}" SALT_GUI_PASSWORD_ENV="${gui_password_effective}" python3 - <<'EOF'
 import json
 import os
 from pathlib import Path
@@ -331,8 +331,8 @@ from pathlib import Path
 Path("/run/saltgui-ingress-auth.json").write_text(
     json.dumps(
         {
-            "username": os.environ["SALT_GUI_USERNAME"],
-            "password": os.environ["SALT_GUI_PASSWORD"],
+            "username": os.environ["SALT_GUI_USERNAME_ENV"],
+            "password": os.environ["SALT_GUI_PASSWORD_ENV"],
         }
     )
 )
