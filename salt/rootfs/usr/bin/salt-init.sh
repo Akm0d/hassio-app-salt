@@ -8,6 +8,15 @@
 set -euo pipefail
 
 readonly SALT_GUI_USERNAME="saltadmin"
+readonly INIT_LOCK_DIR="/run/salt-init.lock"
+
+acquire_init_lock() {
+    while ! mkdir "${INIT_LOCK_DIR}" 2>/dev/null; do
+        sleep 0.1
+    done
+
+    trap 'rmdir "${INIT_LOCK_DIR}" 2>/dev/null || true' EXIT
+}
 
 generate_password() {
     local password=""
@@ -24,18 +33,20 @@ generate_password() {
 ensure_gui_password() {
     local configured_password="${1}"
     local generated_password_file="/data/generated_gui_password"
+    local effective_password=""
 
     if [[ -n "${configured_password}" ]]; then
-        printf '%s' "${configured_password}"
-        return 0
+        effective_password="${configured_password}"
+    elif [[ -s "${generated_password_file}" ]]; then
+        effective_password="$(cat "${generated_password_file}")"
+    else
+        effective_password="$(generate_password)"
     fi
 
-    if [[ ! -s "${generated_password_file}" ]]; then
-        generate_password >"${generated_password_file}"
-        chmod 0600 "${generated_password_file}"
-    fi
+    printf '%s' "${effective_password}" >"${generated_password_file}"
+    chmod 0600 "${generated_password_file}"
 
-    cat "${generated_password_file}"
+    printf '%s' "${effective_password}"
 }
 
 ensure_gui_user() {
@@ -294,6 +305,7 @@ main() {
     local gui_password
     local gui_password_effective
 
+    acquire_init_lock
     auto_accept="$(bashio::config 'auto_accept')"
     gui_password="$(bashio::config 'gui_password')"
 

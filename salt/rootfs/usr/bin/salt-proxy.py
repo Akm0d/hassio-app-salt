@@ -32,6 +32,36 @@ HOP_BY_HOP_HEADERS = {
     "transfer-encoding",
     "upgrade",
 }
+BOOTSTRAP_FALLBACK_HTML = """<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Salt</title>
+</head>
+<body>
+  <p>Opening Salt...</p>
+  <script>
+    const baseUrl = new URL(window.location.href);
+    baseUrl.search = "";
+    baseUrl.hash = "";
+    if (!baseUrl.pathname.endsWith("/")) {
+      baseUrl.pathname = `${baseUrl.pathname}/`;
+    }
+    fetch(new URL("__ha_salt_auth", baseUrl), { credentials: "same-origin", cache: "no-store" })
+      .then((response) => {
+        if (!response.ok) {
+          return response.json().then((payload) => Promise.reject(new Error(payload.message || "SaltGUI sign-in failed.")));
+        }
+        window.location.replace(new URL("app/", baseUrl));
+      })
+      .catch((error) => {
+        document.body.textContent = error.message || "SaltGUI sign-in failed.";
+      });
+  </script>
+</body>
+</html>
+"""
 
 
 class SaltProxyHandler(BaseHTTPRequestHandler):
@@ -60,7 +90,7 @@ class SaltProxyHandler(BaseHTTPRequestHandler):
         request_path = self._strip_ingress_prefix(parsed.path)
 
         if request_path == "/":
-            self._serve_file(BOOTSTRAP_FILE, "text/html; charset=utf-8")
+            self._serve_bootstrap()
             return
 
         if request_path == "/__ha_salt_auth":
@@ -104,6 +134,18 @@ class SaltProxyHandler(BaseHTTPRequestHandler):
 
         self.send_response(200)
         self.send_header("Content-Type", mime)
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def _serve_bootstrap(self) -> None:
+        if BOOTSTRAP_FILE.is_file():
+            self._serve_file(BOOTSTRAP_FILE, "text/html; charset=utf-8")
+            return
+
+        data = BOOTSTRAP_FALLBACK_HTML.encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)

@@ -7,7 +7,16 @@
 
 set -euo pipefail
 
+wait_for_api() {
+    until bash -c ":</dev/tcp/127.0.0.1/3333" >/dev/null 2>&1; do
+        bashio::log.info "Waiting for Salt REST API to accept connections on 3333"
+        sleep 2
+    done
+}
+
 main() {
+    /usr/bin/salt-init.sh
+    wait_for_api
     bashio::log.info "Starting SaltGUI ingress proxy on 0.0.0.0:8099"
     exec python3 /usr/bin/salt-proxy.py
 }

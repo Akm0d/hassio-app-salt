@@ -10,12 +10,17 @@ import urllib.request
 from pathlib import Path
 
 AUTH_FILE = Path("/run/saltgui-ingress-auth.json")
+GENERATED_PASSWORD_FILE = Path("/data/generated_gui_password")
 API_LOGIN_URL = "http://127.0.0.1:3333/login"
+FALLBACK_USERNAME = "saltadmin"
 
 
 def load_credentials() -> tuple[str, str]:
-    data = json.loads(AUTH_FILE.read_text())
-    return data["username"], data["password"]
+    if AUTH_FILE.exists():
+        data = json.loads(AUTH_FILE.read_text())
+        return data["username"], data["password"]
+
+    return FALLBACK_USERNAME, GENERATED_PASSWORD_FILE.read_text().strip()
 
 
 def authenticate_ingress(remote_user_id: str, remote_user_name: str) -> tuple[int, list[tuple[str, str]], dict]:

@@ -15,6 +15,7 @@ wait_for_master() {
 }
 
 main() {
+    /usr/bin/salt-init.sh
     wait_for_master
     bashio::log.info "Starting Salt REST API WSGI server on 127.0.0.1:3333"
     exec python3 /usr/bin/salt-rest-api.py
