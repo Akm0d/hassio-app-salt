@@ -129,6 +129,7 @@ required = [
     "salt",
     "salt.netapi.rest_cherrypy.app",
     "cherrypy",
+    "distro",
     "ws4py",
     "salt.auth.pam",
 ]
