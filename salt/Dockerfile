@@ -3,25 +3,34 @@ ARG BUILD_FROM=ghcr.io/hassio-addons/base:20.0.1
 FROM ${BUILD_FROM}
 
 ARG SALTGUI_REF=release
+ARG SALT_VERSION=3006.23
 
 # Copy root filesystem
 COPY rootfs /
 
 # Setup base
 RUN apk add --no-cache \
+    build-base \
+    cargo \
+    libffi-dev \
     lighttpd \
-    py3-cherrypy \
     py3-pip \
-    py3-ws4py \
+    python3 \
+    python3-dev \
     shadow \
-    salt-lts-api \
-    salt-lts-master \
+    linux-pam-dev \
+    openssl-dev \
     wget \
  && wget -O /tmp/saltgui.tar.gz "https://github.com/erwindon/SaltGUI/archive/${SALTGUI_REF}.tar.gz" \
  && mkdir -p /opt /var/cache/lighttpd /run/lighttpd \
  && tar -xzf /tmp/saltgui.tar.gz -C /tmp \
  && mv "/tmp/SaltGUI-${SALTGUI_REF}/saltgui" /opt/saltgui \
- && python3 -m pip install --no-cache-dir backports.tarfile \
+ && python3 -m pip install --no-cache-dir --break-system-packages --prefer-binary \
+    "salt==${SALT_VERSION}" \
+    CherryPy \
+    ws4py \
+    backports.tarfile \
+    python-pam \
  && rm -rf "/tmp/SaltGUI-${SALTGUI_REF}" /tmp/saltgui.tar.gz
 
 # Build arguments

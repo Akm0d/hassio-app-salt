@@ -82,6 +82,8 @@ pki_dir: /data/pki/master
 cachedir: /data/cache/master
 token_dir: /data/tokens
 sqlite_queue_dir: /data/queues
+api_pidfile: /run/salt-api.pid
+api_logfile: /run/salt-api.log
 pidfile: /run/salt-master.pid
 sock_dir: /run/salt/master
 state_events: True
@@ -115,6 +117,33 @@ rest_cherrypy:
   app: /opt/saltgui/index.html
   static: /opt/saltgui/static
   static_path: /static
+EOF
+}
+
+verify_salt_runtime() {
+    python3 - <<'EOF'
+import importlib
+import sys
+
+required = [
+    "salt",
+    "salt.netapi.rest_cherrypy.app",
+    "cherrypy",
+    "ws4py",
+    "pam",
+]
+
+failed = []
+for name in required:
+    try:
+        importlib.import_module(name)
+        print(f"runtime check ok: {name}")
+    except Exception as err:  # pragma: no cover - startup only
+        failed.append((name, err))
+        print(f"runtime check failed: {name}: {err}", file=sys.stderr)
+
+if failed:
+    raise SystemExit(1)
 EOF
 }
 
@@ -298,6 +327,7 @@ main() {
     gui_password_effective="$(ensure_gui_password "${gui_password}")"
     ensure_gui_user "${SALT_GUI_USERNAME}" "${gui_password_effective}"
     write_master_config "${auto_accept}"
+    verify_salt_runtime
     write_proxy_config
     write_ingress_bootstrap
     seed_saltgui_files
