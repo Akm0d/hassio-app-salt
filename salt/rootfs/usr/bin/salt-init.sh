@@ -9,6 +9,7 @@ set -euo pipefail
 
 readonly SALT_GUI_USERNAME="saltadmin"
 readonly INIT_LOCK_DIR="/run/salt-init.lock"
+readonly INIT_READY_FILE="/run/salt-init.ready"
 
 acquire_init_lock() {
     while ! mkdir "${INIT_LOCK_DIR}" 2>/dev/null; do
@@ -145,7 +146,6 @@ required = [
     "jinja2",
     "msgpack",
     "packaging",
-    "pam",
     "psutil",
     "requests",
     "ws4py",
@@ -309,6 +309,10 @@ main() {
     auto_accept="$(bashio::config 'auto_accept')"
     gui_password="$(bashio::config 'gui_password')"
 
+    if [[ -f "${INIT_READY_FILE}" ]]; then
+        return 0
+    fi
+
     bashio::log.info "Preparing Salt master configuration"
     mkdir -p /data/pki/master /data/cache/master /data/tokens /data/queues /run/salt/master /opt/ha-salt-ingress
 
@@ -346,5 +350,7 @@ EOF
     if [[ -z "${gui_password}" ]]; then
         bashio::log.notice "Generated SaltGUI password for ${SALT_GUI_USERNAME}: ${gui_password_effective}"
     fi
+
+    touch "${INIT_READY_FILE}"
 }
 main "$@"
