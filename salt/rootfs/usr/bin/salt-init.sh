@@ -130,7 +130,7 @@ required = [
     "salt.netapi.rest_cherrypy.app",
     "cherrypy",
     "ws4py",
-    "pam",
+    "salt.auth.pam",
 ]
 
 failed = []
