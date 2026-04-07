@@ -128,6 +128,7 @@ import sys
 required = [
     "salt",
     "salt.netapi.rest_cherrypy.app",
+    "salt.netapi.rest_cherrypy.wsgi",
     "cherrypy",
     "distro",
     "jinja2",
@@ -154,53 +155,6 @@ for name in required:
 
 if failed:
     raise SystemExit(1)
-EOF
-}
-
-write_proxy_config() {
-    cat <<'EOF' >/etc/lighttpd/lighttpd.conf
-server.modules = (
-    "mod_access",
-    "mod_alias",
-    "mod_cgi",
-    "mod_proxy",
-    "mod_rewrite"
-)
-
-server.document-root = "/opt/ha-salt-ingress"
-server.errorlog = "/dev/stderr"
-server.port = 8099
-server.bind = "0.0.0.0"
-index-file.names = ( "index.html" )
-
-alias.url = (
-    "/__ha_salt_auth" => "/usr/bin/salt-ingress-auth.py"
-)
-
-cgi.assign = (
-    ".py" => "/usr/bin/python3"
-)
-
-url.rewrite-once = (
-    "^/(api/)?hassio_ingress/[^/]+$" => "/",
-    "^/(api/)?hassio_ingress/[^/]+/$" => "/",
-    "^/(api/)?hassio_ingress/[^/]+/(.*)$" => "/$2"
-)
-
-$HTTP["url"] =~ "^/(app|login|logout|run|events|jobs|keys|minions|stats|hook|ws|static|api)(/.*)?$" {
-    proxy.server = (
-        "" => (
-            (
-                "host" => "127.0.0.1",
-                "port" => 3333
-            )
-        )
-    )
-}
-
-$HTTP["remoteip"] != "172.30.32.2" {
-    url.access-deny = ( "" )
-}
 EOF
 }
 
@@ -320,6 +274,19 @@ EOF
 seed_saltgui_files() {
     printf 'CLEAR\npam\n' >/opt/saltgui/static/salt-auth.txt
     : >/opt/saltgui/static/minions.txt
+
+    python3 - <<'EOF'
+from pathlib import Path
+import re
+
+for path in Path("/opt/saltgui").rglob("config.js"):
+    text = path.read_text()
+    updated = re.sub(r"API_URL:\s*['\"][^'\"]*['\"]", "API_URL: '/api'", text)
+    updated = re.sub(r"NAV_URL:\s*['\"][^'\"]*['\"]", "NAV_URL: '/app'", updated)
+    if updated != text:
+        path.write_text(updated)
+        break
+EOF
 }
 
 main() {
@@ -338,7 +305,6 @@ main() {
     ensure_gui_user "${SALT_GUI_USERNAME}" "${gui_password_effective}"
     write_master_config "${auto_accept}"
     verify_salt_runtime
-    write_proxy_config
     write_ingress_bootstrap
     seed_saltgui_files
     SALT_GUI_USERNAME="${SALT_GUI_USERNAME}" SALT_GUI_PASSWORD="${gui_password_effective}" python3 - <<'EOF'
@@ -360,7 +326,8 @@ EOF
     bashio::log.info "Salt state tree: /srv/salt (host path: /share/salt)"
     bashio::log.info "Salt pillar tree: /srv/pillar (host path: /share/pillar)"
     bashio::log.info "SaltGUI is available through the admin-only Home Assistant sidebar panel"
-    bashio::log.info "salt-api will listen on internal port 3333"
+    bashio::log.info "Salt REST API will listen on internal port 3333"
+    bashio::log.info "SaltGUI ingress proxy will listen on internal port 8099"
     bashio::log.info "Salt master ports: 4505/4506"
     bashio::log.info "SaltGUI service account: ${SALT_GUI_USERNAME}"
 
