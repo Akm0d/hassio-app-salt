@@ -130,7 +130,16 @@ required = [
     "salt.netapi.rest_cherrypy.app",
     "cherrypy",
     "distro",
+    "jinja2",
+    "msgpack",
+    "packaging",
+    "pam",
+    "psutil",
+    "requests",
     "ws4py",
+    "yaml",
+    "zmq",
+    "tornado",
     "salt.auth.pam",
 ]
 

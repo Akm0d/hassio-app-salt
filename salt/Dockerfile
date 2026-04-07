@@ -31,6 +31,20 @@ RUN apk add --no-cache \
     ws4py \
     backports.tarfile \
     distro \
+    Jinja2 \
+    looseversion \
+    msgpack \
+    packaging \
+    psutil \
+    pycryptodomex \
+    python-dateutil \
+    python-gnupg \
+    python-pam \
+    PyYAML \
+    pyzmq \
+    requests \
+    timelib \
+    tornado \
  && rm -rf "/tmp/SaltGUI-${SALTGUI_REF}" /tmp/saltgui.tar.gz
 
 # Build arguments
