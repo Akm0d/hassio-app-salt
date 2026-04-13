@@ -45,6 +45,8 @@ Password for the SaltGUI service account. If left empty, the add-on generates
 one on first boot, stores it in `/data/generated_gui_password`, and prints it
 to the log.
 
+Manual SaltGUI logins use the fixed username `saltadmin`.
+
 ### Option: `auto_accept`
 
 If enabled, the Salt master automatically accepts new minion keys. Leave this
@@ -129,6 +131,8 @@ Then restart the minion and accept the key from SaltGUI or the Salt CLI.
 - The built-in SaltGUI service account `saltadmin` gets broad
   SaltGUI-compatible permissions:
   `.*`, `@runner`, `@wheel`, and `@jobs`.
+- If you open SaltGUI without ingress auto-login, sign in manually as
+  `saltadmin` with the configured or generated GUI password.
 - The Salt master publishes on the host's standard `4505` and `4506` ports so
   LAN minions can connect without needing Docker-internal addressing.
 - Set a strong password before exposing Salt master ports beyond your trusted

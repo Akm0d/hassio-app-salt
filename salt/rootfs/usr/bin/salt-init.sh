@@ -346,6 +346,7 @@ EOF
     bashio::log.info "SaltGUI ingress proxy will listen on internal port 8099"
     bashio::log.info "Salt master ports: 4505/4506"
     bashio::log.info "SaltGUI service account: ${SALT_GUI_USERNAME}"
+    bashio::log.info "Manual SaltGUI logins use username: ${SALT_GUI_USERNAME}"
 
     if [[ -z "${gui_password}" ]]; then
         bashio::log.notice "Generated SaltGUI password for ${SALT_GUI_USERNAME}: ${gui_password_effective}"

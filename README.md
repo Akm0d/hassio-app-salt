@@ -7,6 +7,7 @@ The add-on:
 
 - serves SaltGUI through an admin-only Home Assistant ingress panel
 - signs in authenticated Home Assistant admin users automatically
+- uses the fixed manual SaltGUI username `saltadmin`
 - runs `salt-api` internally on port `3333`
 - exposes the Salt master transport on ports `4505` and `4506`
 - persists Salt PKI, cache, job data, and tokens in `/data`

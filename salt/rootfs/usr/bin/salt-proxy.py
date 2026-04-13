@@ -62,6 +62,48 @@ BOOTSTRAP_FALLBACK_HTML = """<!doctype html>
 </body>
 </html>
 """
+LOGIN_HINT_SNIPPET = """
+<script>
+(() => {
+  const USERNAME = "saltadmin";
+
+  const applyLoginHints = () => {
+    const passwordInput = document.querySelector('input[type="password"]');
+    const usernameInput =
+      document.querySelector('input[name="username"]') ||
+      document.querySelector('input[id*="user" i]') ||
+      document.querySelector('input[placeholder*="user" i]') ||
+      (() => {
+        const textInputs = Array.from(document.querySelectorAll('input[type="text"], input:not([type])'));
+        return passwordInput && textInputs.length === 1 ? textInputs[0] : null;
+      })();
+
+    if (usernameInput && !usernameInput.value) {
+      usernameInput.value = USERNAME;
+      usernameInput.dispatchEvent(new Event("input", { bubbles: true }));
+      usernameInput.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+
+    if (passwordInput && !document.getElementById("ha-salt-login-hint")) {
+      const hint = document.createElement("p");
+      hint.id = "ha-salt-login-hint";
+      hint.textContent = "Manual login username: saltadmin";
+      hint.style.margin = "0.75rem 0 0";
+      hint.style.fontSize = "0.9rem";
+      hint.style.color = "#22c7bd";
+      passwordInput.parentElement?.appendChild(hint);
+    }
+  };
+
+  new MutationObserver(applyLoginHints).observe(document.documentElement, {
+    childList: true,
+    subtree: true,
+  });
+  window.addEventListener("DOMContentLoaded", applyLoginHints);
+  applyLoginHints();
+})();
+</script>
+"""
 
 
 class SaltProxyHandler(BaseHTTPRequestHandler):
@@ -170,7 +212,23 @@ class SaltProxyHandler(BaseHTTPRequestHandler):
             self.send_error(404, "Not Found")
             return
 
+        if target == APP_DIR / "index.html":
+            self._serve_app_index(target)
+            return
+
         self._serve_file(target)
+
+    def _serve_app_index(self, path: Path) -> None:
+        html = path.read_text(encoding="utf-8")
+        if LOGIN_HINT_SNIPPET not in html:
+            html = html.replace("</body>", f"{LOGIN_HINT_SNIPPET}\n  </body>")
+        data = html.encode("utf-8")
+
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
 
     def _handle_auth_bridge(self) -> None:
         status, extra_headers, payload = authenticate_ingress(
