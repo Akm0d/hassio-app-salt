@@ -268,6 +268,17 @@ write_ingress_bootstrap() {
           await fail(response);
           return;
         }
+        const payload = await response.json();
+        const loginResponse = payload?.result?.return?.[0];
+        if (!loginResponse?.token) {
+          statusEl.textContent = "SaltGUI sign-in returned an incomplete session.";
+          statusEl.classList.add("error");
+          return;
+        }
+
+        window.localStorage.setItem("eauth", "pam");
+        window.sessionStorage.setItem("token", loginResponse.token);
+        window.sessionStorage.setItem("login_response", JSON.stringify(loginResponse));
         window.location.replace(appUrl);
       } catch (_error) {
         statusEl.textContent = "Could not reach the Salt ingress bridge.";

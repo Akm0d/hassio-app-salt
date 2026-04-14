@@ -275,6 +275,7 @@ class SaltProxyHandler(BaseHTTPRequestHandler):
             and key.lower() not in {"host", "content-length", "accept-encoding"}
         }
         headers["Host"] = f"{API_HOST}:{API_PORT}"
+        self._normalize_api_content_type(headers, body)
 
         connection = http.client.HTTPConnection(API_HOST, API_PORT, timeout=30)
         try:
@@ -315,6 +316,27 @@ class SaltProxyHandler(BaseHTTPRequestHandler):
         if not length:
             return None
         return self.rfile.read(int(length))
+
+    @staticmethod
+    def _normalize_api_content_type(headers: dict[str, str], body: bytes | None) -> None:
+        if not body:
+            return
+
+        stripped = body.lstrip()
+        if not stripped.startswith((b"{", b"[")):
+            return
+
+        content_type_key = next(
+            (key for key in headers if key.lower() == "content-type"),
+            None,
+        )
+        if content_type_key is None:
+            headers["Content-Type"] = "application/json"
+            return
+
+        content_type = headers[content_type_key].split(";", 1)[0].strip().lower()
+        if content_type in {"", "text/plain"}:
+            headers[content_type_key] = "application/json"
 
 
 def main() -> int:
