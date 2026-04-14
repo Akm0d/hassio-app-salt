@@ -187,7 +187,8 @@ class SaltProxyHandler(BaseHTTPRequestHandler):
     def _normalize_path(path: str) -> str:
         if not path:
             return "/"
-        return "/" + path.lstrip("/")
+        normalized = re.sub(r"/{2,}", "/", path)
+        return "/" + normalized.lstrip("/")
 
     def _serve_file(self, path: Path, content_type: str | None = None) -> None:
         data = path.read_bytes()
@@ -201,12 +202,21 @@ class SaltProxyHandler(BaseHTTPRequestHandler):
 
     def _serve_bootstrap(self) -> None:
         if BOOTSTRAP_FILE.is_file():
-            self._serve_file(BOOTSTRAP_FILE, "text/html; charset=utf-8")
+            data = BOOTSTRAP_FILE.read_bytes()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Cache-Control", "no-store, max-age=0")
+            self.send_header("Pragma", "no-cache")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
             return
 
         data = BOOTSTRAP_FALLBACK_HTML.encode("utf-8")
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Cache-Control", "no-store, max-age=0")
+        self.send_header("Pragma", "no-cache")
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)
@@ -243,34 +253,45 @@ class SaltProxyHandler(BaseHTTPRequestHandler):
 
     def _serve_app_index(self, path: Path) -> None:
         html = path.read_text(encoding="utf-8")
+        html = html.replace(
+            'src="static/scripts/config.js"',
+            'src="static/scripts/config.js?v=ha-ingress"',
+        )
         if LOGIN_HINT_SNIPPET not in html:
             html = html.replace("</body>", f"{LOGIN_HINT_SNIPPET}\n  </body>")
         data = html.encode("utf-8")
 
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Cache-Control", "no-store, max-age=0")
+        self.send_header("Pragma", "no-cache")
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)
 
     def _serve_config_js(self, path: Path) -> None:
-        text = path.read_text(encoding="utf-8")
-        replacements = {
-            "API_URL": "../api",
-            "NAV_URL": "../app",
-        }
-
-        for key, value in replacements.items():
-            pattern = re.compile(
-                rf'(["\']?{re.escape(key)}["\']?\s*:\s*)["\'][^"\']*["\']'
-            )
-            text, count = pattern.subn(rf'\1"{value}"', text, count=1)
-            if count == 0:
-                text = text.replace("{", f'{{\n  "{key}": "{value}",', 1)
-
-        data = text.encode("utf-8")
+        _ = path  # Keep the signature aligned with the static file handler.
+        data = (
+            "/* dynamically generated for Home Assistant ingress */\n"
+            "/* eslint-disable no-unused-vars */\n"
+            "const config = (() => {\n"
+            "  const url = new URL(window.location.href);\n"
+            "  url.search = \"\";\n"
+            "  url.hash = \"\";\n"
+            "  const pathname = url.pathname.replace(/\\/+/g, \"/\").replace(/\\/+$/, \"\");\n"
+            "  const basePath = pathname.endsWith(\"/app\") ? pathname.slice(0, -4) || \"/\" : pathname || \"/\";\n"
+            "  const normalizedBase = basePath === \"/\" ? \"/\" : `${basePath}/`;\n"
+            "  return {\n"
+            "    API_URL: new URL(\"api/\", `${url.origin}${normalizedBase}`).pathname.replace(/\\/+$/, \"\"),\n"
+            "    NAV_URL: new URL(\"app\", `${url.origin}${normalizedBase}`).pathname,\n"
+            "  };\n"
+            "})();\n"
+            "/* eslint-enable no-unused-vars */\n"
+        ).encode("utf-8")
         self.send_response(200)
         self.send_header("Content-Type", "application/javascript; charset=utf-8")
+        self.send_header("Cache-Control", "no-store, max-age=0")
+        self.send_header("Pragma", "no-cache")
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)
