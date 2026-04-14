@@ -15,10 +15,12 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from salt_ingress_auth_lib import authenticate_ingress
+import yaml
 
 BOOTSTRAP_FILE = Path("/opt/ha-salt-ingress/index.html")
 APP_DIR = Path("/opt/saltgui")
 STATIC_DIR = APP_DIR / "static"
+MASTER_CONFIG_FILE = Path("/etc/salt/master")
 API_HOST = "127.0.0.1"
 API_PORT = 3333
 INGRESS_PREFIX = re.compile(r"^/(?:api/)?hassio_ingress/[^/]+(?P<rest>/.*)?$")
@@ -115,6 +117,78 @@ LOGIN_HINT_SNIPPET = """
   window.addEventListener("DOMContentLoaded", applyLoginHints);
   applyLoginHints();
 })();
+</script>
+"""
+
+
+def _read_theme_preference() -> str:
+    try:
+        if not MASTER_CONFIG_FILE.is_file():
+            return "auto"
+        with MASTER_CONFIG_FILE.open(encoding="utf-8") as handle:
+            config = yaml.safe_load(handle) or {}
+        theme = str(config.get("saltgui_theme", "auto")).strip().lower()
+    except Exception:
+        return "auto"
+
+    if theme in {"auto", "light", "dark"}:
+        return theme
+    return "auto"
+
+
+def _theme_bootstrap_snippet() -> str:
+    configured_theme = json.dumps(_read_theme_preference())
+    return f"""
+<script>
+(() => {{
+  const configuredTheme = {configured_theme};
+
+  const getParentHints = () => {{
+    if (window.self === window.top) {{
+      return "";
+    }}
+    try {{
+      const parentDoc = window.parent.document;
+      return [
+        parentDoc.documentElement.dataset.theme || "",
+        parentDoc.documentElement.getAttribute("theme") || "",
+        parentDoc.documentElement.className || "",
+        parentDoc.body?.className || "",
+      ].join(" ").toLowerCase();
+    }} catch (_error) {{
+      return "";
+    }}
+  }};
+
+  const wantsDarkTheme = () => {{
+    if (configuredTheme === "dark") {{
+      return true;
+    }}
+    if (configuredTheme === "light") {{
+      return false;
+    }}
+
+    const hints = getParentHints();
+    if (/(^|\\s)(light)(\\s|$)/.test(hints)) {{
+      return false;
+    }}
+    if (/(^|\\s)(dark|night)(\\s|$)/.test(hints)) {{
+      return true;
+    }}
+    return !!(window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+  }};
+
+  try {{
+    window.localStorage.setItem("theme_default", configuredTheme);
+    window.sessionStorage.setItem("theme", configuredTheme);
+  }} catch (_error) {{
+    // Ignore storage failures in restricted browsers.
+  }}
+
+  const root = document.documentElement;
+  root.dataset.themePreference = configuredTheme;
+  root.dataset.theme = wantsDarkTheme() ? "dark" : "light";
+}})();
 </script>
 """
 
@@ -258,6 +332,14 @@ class SaltProxyHandler(BaseHTTPRequestHandler):
 
     def _serve_app_index(self, path: Path) -> None:
         html = path.read_text(encoding="utf-8")
+        theme_bootstrap = _theme_bootstrap_snippet()
+
+        if theme_bootstrap not in html:
+            html = html.replace(
+                "<title>SaltGUI</title>",
+                f"<title>SaltGUI</title>\n{theme_bootstrap}",
+                1,
+            )
 
         def add_cache_buster(match: re.Match[str]) -> str:
             attr = match.group("attr")
