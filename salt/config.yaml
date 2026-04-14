@@ -1,6 +1,6 @@
 ---
 name: Salt
-version: "0.14.8"
+version: "0.14.9"
 slug: salt
 description: Run a Salt master with admin-only SaltGUI ingress and host-editable state trees
 url: https://github.com/Akm0d/hassio-app-salt

@@ -6,6 +6,7 @@ from __future__ import annotations
 import os
 import sys
 from socketserver import ThreadingMixIn
+from wsgiref.handlers import is_hop_by_hop
 from wsgiref.simple_server import WSGIRequestHandler, WSGIServer, make_server
 
 os.environ.setdefault("SALT_MASTER_CONFIG", "/etc/salt/master")
@@ -23,6 +24,18 @@ class LoggingWSGIRequestHandler(WSGIRequestHandler):
         sys.stderr.write(f"[salt-api:wsgi] {self.address_string()} - {format % args}\n")
 
 
+def filtered_application(environ, start_response):
+    def filtered_start_response(status, headers, exc_info=None):
+        filtered_headers = [
+            (name, value)
+            for name, value in headers
+            if not is_hop_by_hop(name)
+        ]
+        return start_response(status, filtered_headers, exc_info)
+
+    return application(environ, filtered_start_response)
+
+
 def main() -> int:
     host = os.environ.get("SALT_REST_HOST", "127.0.0.1")
     port = int(os.environ.get("SALT_REST_PORT", "3333"))
@@ -30,7 +43,7 @@ def main() -> int:
     with make_server(
         host,
         port,
-        application,
+        filtered_application,
         server_class=ThreadingWSGIServer,
         handler_class=LoggingWSGIRequestHandler,
     ) as httpd:
