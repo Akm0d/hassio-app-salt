@@ -16,8 +16,17 @@ wait_for_master() {
 
 main() {
     /usr/bin/salt-init.sh
+    local log_level
+
+    log_level="$(bashio::config 'log_level')"
     wait_for_master
-    bashio::log.info "Starting Salt REST API WSGI server on 127.0.0.1:3333"
-    exec python3 /usr/bin/salt-rest-api.py
+    bashio::log.info "Starting native salt-api on 127.0.0.1:3333"
+    # Keep salt-api in the foreground so s6 can supervise it directly and the
+    # CherryPy REST logs land in the add-on log stream.
+    exec salt-api \
+        -c /etc/salt \
+        -l "${log_level}" \
+        --log-file=/dev/stderr \
+        --log-file-level="${log_level}"
 }
 main "$@"
