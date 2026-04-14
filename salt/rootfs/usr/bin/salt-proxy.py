@@ -190,12 +190,17 @@ class SaltProxyHandler(BaseHTTPRequestHandler):
         normalized = re.sub(r"/{2,}", "/", path)
         return "/" + normalized.lstrip("/")
 
+    def _send_no_store_headers(self) -> None:
+        self.send_header("Cache-Control", "no-store, max-age=0")
+        self.send_header("Pragma", "no-cache")
+
     def _serve_file(self, path: Path, content_type: str | None = None) -> None:
         data = path.read_bytes()
         mime = content_type or mimetypes.guess_type(path.name)[0] or "application/octet-stream"
 
         self.send_response(200)
         self.send_header("Content-Type", mime)
+        self._send_no_store_headers()
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)
@@ -253,9 +258,19 @@ class SaltProxyHandler(BaseHTTPRequestHandler):
 
     def _serve_app_index(self, path: Path) -> None:
         html = path.read_text(encoding="utf-8")
-        html = html.replace(
-            'src="static/scripts/config.js"',
-            'src="static/scripts/config.js?v=ha-ingress"',
+
+        def add_cache_buster(match: re.Match[str]) -> str:
+            attr = match.group("attr")
+            quote = match.group("quote")
+            value = match.group("value")
+            if "?" in value:
+                return match.group(0)
+            return f"{attr}={quote}{value}?v=ha-ingress{quote}"
+
+        html = re.sub(
+            r'(?P<attr>(?:src|href))=(?P<quote>["\'])(?P<value>static/[^"\']+)(?P=quote)',
+            add_cache_buster,
+            html,
         )
         if LOGIN_HINT_SNIPPET not in html:
             html = html.replace("</body>", f"{LOGIN_HINT_SNIPPET}\n  </body>")
@@ -263,8 +278,7 @@ class SaltProxyHandler(BaseHTTPRequestHandler):
 
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
-        self.send_header("Cache-Control", "no-store, max-age=0")
-        self.send_header("Pragma", "no-cache")
+        self._send_no_store_headers()
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)
@@ -290,8 +304,7 @@ class SaltProxyHandler(BaseHTTPRequestHandler):
         ).encode("utf-8")
         self.send_response(200)
         self.send_header("Content-Type", "application/javascript; charset=utf-8")
-        self.send_header("Cache-Control", "no-store, max-age=0")
-        self.send_header("Pragma", "no-cache")
+        self._send_no_store_headers()
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)
