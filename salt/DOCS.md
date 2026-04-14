@@ -24,7 +24,8 @@ Assistant host.
 4. Open the Salt sidebar panel in Home Assistant as an admin user.
 5. The add-on signs you in to SaltGUI automatically.
    Manual logins use Salt's `pam` external auth with username `saltadmin`.
-6. Point Salt minions at the Home Assistant host on ports `4505` and `4506`.
+6. Point Salt minions at a hostname or IP address they can actually resolve and
+   reach on ports `4505` and `4506`.
 
 ## Configuration
 

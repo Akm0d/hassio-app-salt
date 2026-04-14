@@ -256,8 +256,13 @@ write_ingress_bootstrap() {
 
     async function boot() {
       const baseUrl = ingressBaseUrl();
-      const authUrl = new URL("__ha_salt_auth", baseUrl);
-      const appUrl = new URL("app/", baseUrl);
+      const childUrl = (childPath) => {
+        const url = new URL(baseUrl.href);
+        url.pathname = `${baseUrl.pathname.replace(/\/+$/, "")}/${childPath.replace(/^\/+/, "")}`;
+        return url;
+      };
+      const authUrl = childUrl("__ha_salt_auth");
+      const appUrl = childUrl("app/");
 
       try {
         const response = await fetch(authUrl, {
@@ -303,8 +308,18 @@ import re
 
 for path in Path("/opt/saltgui").rglob("config.js"):
     text = path.read_text()
-    updated = re.sub(r"API_URL:\s*['\"][^'\"]*['\"]", "API_URL: '/api'", text)
-    updated = re.sub(r"NAV_URL:\s*['\"][^'\"]*['\"]", "NAV_URL: '/app'", updated)
+    updated = re.sub(
+        r'(["\']?API_URL["\']?\s*:\s*)["\'][^"\']*["\']',
+        r'\1"../api"',
+        text,
+        count=1,
+    )
+    updated = re.sub(
+        r'(["\']?NAV_URL["\']?\s*:\s*)["\'][^"\']*["\']',
+        r'\1"../app"',
+        updated,
+        count=1,
+    )
     if updated != text:
         path.write_text(updated)
         break
