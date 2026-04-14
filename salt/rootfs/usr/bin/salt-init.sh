@@ -82,6 +82,7 @@ EOF
 
 write_master_config() {
     local auto_accept="${1}"
+    local saltgui_theme="${2}"
 
     cat <<EOF >/etc/salt/master
 interface: 0.0.0.0
@@ -99,6 +100,7 @@ api_logfile: /run/salt-api.log
 pidfile: /run/salt-master.pid
 sock_dir: /run/salt/master
 state_events: True
+saltgui_theme: ${saltgui_theme}
 fileserver_backend:
   - roots
 file_roots:
@@ -330,10 +332,12 @@ main() {
     local auto_accept
     local gui_password
     local gui_password_effective
+    local saltgui_theme
 
     acquire_init_lock
     auto_accept="$(bashio::config 'auto_accept')"
     gui_password="$(bashio::config 'gui_password')"
+    saltgui_theme="$(bashio::config 'saltgui_theme')"
 
     if [[ -f "${INIT_READY_FILE}" ]]; then
         return 0
@@ -345,7 +349,7 @@ main() {
     ensure_share_tree
     gui_password_effective="$(ensure_gui_password "${gui_password}")"
     ensure_gui_user "${SALT_GUI_USERNAME}" "${gui_password_effective}"
-    write_master_config "${auto_accept}"
+    write_master_config "${auto_accept}" "${saltgui_theme}"
     verify_salt_runtime
     write_ingress_bootstrap
     seed_saltgui_files
@@ -368,6 +372,7 @@ EOF
     bashio::log.info "Salt state tree: /srv/salt (host path: /share/salt)"
     bashio::log.info "Salt pillar tree: /srv/pillar (host path: /share/pillar)"
     bashio::log.info "SaltGUI is available through the admin-only Home Assistant sidebar panel"
+    bashio::log.info "SaltGUI theme preference: ${saltgui_theme}"
     bashio::log.info "Salt REST API will listen on internal port 3333"
     bashio::log.info "SaltGUI ingress proxy will listen on internal port 8099"
     bashio::log.info "Salt master ports: 4505/4506"

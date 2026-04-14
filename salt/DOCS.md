@@ -35,6 +35,7 @@ Sample configuration:
 log_level: info
 gui_password: ""
 auto_accept: false
+saltgui_theme: auto
 ```
 
 ### Option: `log_level`
@@ -54,6 +55,14 @@ Manual SaltGUI logins use the fixed username `saltadmin`.
 If enabled, the Salt master automatically accepts new minion keys. Leave this
 disabled unless you intentionally want an open enrollment model.
 
+### Option: `saltgui_theme`
+
+Controls the SaltGUI theme written into `/etc/salt/master` as `saltgui_theme`.
+
+- `auto`: follow the browser color-scheme and embedded theme hints when present
+- `light`: always use the light SaltGUI theme
+- `dark`: always use the dark SaltGUI theme
+
 ## Fixed Master Defaults
 
 This add-on intentionally keeps the core Salt master layout opinionated so the
@@ -70,9 +79,9 @@ Home Assistant integration stays predictable:
 - `state_events: True`
 - internal `salt-api` / SaltGUI service on `127.0.0.1:3333`
 
-Only `log_level`, `gui_password`, and `auto_accept` are exposed in the add-on
-UI. Everything else uses these static defaults so minion connectivity, ingress,
-and host-editable state paths stay consistent.
+Only `log_level`, `gui_password`, `auto_accept`, and `saltgui_theme` are
+exposed in the add-on UI. Everything else uses these static defaults so minion
+connectivity, ingress, and host-editable state paths stay consistent.
 
 ## File Layout
 
