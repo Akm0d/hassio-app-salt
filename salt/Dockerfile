@@ -2,7 +2,8 @@ ARG BUILD_FROM=ghcr.io/hassio-addons/base:20.0.1
 # hadolint ignore=DL3006
 FROM ${BUILD_FROM}
 
-ARG SALTGUI_REF=release
+ARG SALTGUI_REPOSITORY=Akm0d/SaltGUI
+ARG SALTGUI_REF=f3e507b3901967545bd7af5f2f9bf49b004df6f7
 
 # Copy root filesystem
 COPY rootfs /
@@ -16,7 +17,7 @@ RUN apk add --no-cache \
     salt-master \
     shadow \
     wget \
- && wget -O /tmp/saltgui.tar.gz "https://github.com/erwindon/SaltGUI/archive/${SALTGUI_REF}.tar.gz" \
+ && wget -O /tmp/saltgui.tar.gz "https://github.com/${SALTGUI_REPOSITORY}/archive/${SALTGUI_REF}.tar.gz" \
  && mkdir -p /opt /var/cache/lighttpd /run/lighttpd \
  && tar -xzf /tmp/saltgui.tar.gz -C /tmp \
  && mv "/tmp/SaltGUI-${SALTGUI_REF}/saltgui" /opt/saltgui \
