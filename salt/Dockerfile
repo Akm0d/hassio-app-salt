@@ -3,7 +3,7 @@ ARG BUILD_FROM=ghcr.io/hassio-addons/base:20.0.1
 FROM ${BUILD_FROM}
 
 ARG SALTGUI_REPOSITORY=Akm0d/SaltGUI
-ARG SALTGUI_REF=3eb4ab13e1437b4d1634c9b289c099641412f0b7
+ARG SALTGUI_REF=master
 
 # Copy root filesystem
 COPY rootfs /
