@@ -18,3 +18,5 @@ The add-on:
 Those ports are fixed so the add-on matches standard Salt defaults.
 
 See [the add-on documentation](./salt/DOCS.md) for setup and configuration.
+
+<img width="3816" height="1335" alt="image" src="https://github.com/user-attachments/assets/8e101cae-850f-4fb4-9309-82a45878df77" />
