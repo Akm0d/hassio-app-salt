@@ -15,9 +15,12 @@ wait_for_api() {
 }
 
 main() {
+    local saltgui_theme
+
     /usr/bin/salt-init.sh
     wait_for_api
+    saltgui_theme="$(bashio::config 'saltgui_theme')"
     bashio::log.info "Starting SaltGUI ingress proxy on 0.0.0.0:8099"
-    exec python3 /usr/bin/salt-proxy.py
+    SALTGUI_THEME="${saltgui_theme}" exec python3 /usr/bin/salt-proxy.py
 }
 main "$@"

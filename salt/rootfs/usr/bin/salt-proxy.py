@@ -122,6 +122,10 @@ LOGIN_HINT_SNIPPET = """
 
 
 def _read_theme_preference() -> str:
+    env_theme = os.environ.get("SALTGUI_THEME", "").strip().lower()
+    if env_theme in {"auto", "light", "dark"}:
+        return env_theme
+
     try:
         if not MASTER_CONFIG_FILE.is_file():
             return "auto"
