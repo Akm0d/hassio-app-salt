@@ -164,6 +164,65 @@ def _theme_bootstrap_snippet() -> str:
     }}
   }};
 
+  const parseColor = (value) => {{
+    if (!value || value === "transparent") {{
+      return null;
+    }}
+
+    const match = value.match(/^rgba?\\(([^)]+)\\)$/i);
+    if (!match) {{
+      return null;
+    }}
+
+    const channels = match[1].split(",").map((channel) => Number.parseFloat(channel.trim()));
+    if (channels.length < 3 || channels.slice(0, 3).some((channel) => Number.isNaN(channel))) {{
+      return null;
+    }}
+
+    const alpha = channels.length > 3 ? channels[3] : 1;
+    if (Number.isNaN(alpha) || alpha <= 0) {{
+      return null;
+    }}
+
+    return channels.slice(0, 3);
+  }};
+
+  const isDarkColor = (value) => {{
+    const channels = parseColor(value);
+    if (!channels) {{
+      return null;
+    }}
+
+    const [red, green, blue] = channels;
+    const brightness = (red * 299 + green * 587 + blue * 114) / 1000;
+    return brightness < 140;
+  }};
+
+  const getParentComputedTheme = () => {{
+    if (window.self === window.top || !window.getComputedStyle) {{
+      return null;
+    }}
+
+    try {{
+      const parentDoc = window.parent.document;
+      const candidates = [window.getComputedStyle(parentDoc.documentElement).backgroundColor];
+      if (parentDoc.body) {{
+        candidates.push(window.getComputedStyle(parentDoc.body).backgroundColor);
+      }}
+
+      for (const candidate of candidates) {{
+        const isDark = isDarkColor(candidate);
+        if (isDark !== null) {{
+          return isDark;
+        }}
+      }}
+    }} catch (_error) {{
+      return null;
+    }}
+
+    return null;
+  }};
+
   const wantsDarkTheme = () => {{
     if (configuredTheme === "dark") {{
       return true;
@@ -179,6 +238,12 @@ def _theme_bootstrap_snippet() -> str:
     if (/(^|\\s)(dark|night)(\\s|$)/.test(hints)) {{
       return true;
     }}
+
+    const computedTheme = getParentComputedTheme();
+    if (computedTheme !== null) {{
+      return computedTheme;
+    }}
+
     return !!(window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
   }};
 
