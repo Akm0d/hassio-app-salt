@@ -121,27 +121,43 @@ LOGIN_HINT_SNIPPET = """
 """
 
 
-def _read_theme_preference() -> str:
+def _normalize_theme_preference(theme: str | None) -> str | None:
+    if theme is None:
+        return None
+
+    normalized = theme.strip().lower()
+    if normalized in {"auto", "light", "dark"}:
+        return normalized
+    return None
+
+
+def _read_theme_preference(query: str = "") -> str:
+    query_theme = urllib.parse.parse_qs(query).get("theme", [None])[-1]
+    normalized_query_theme = _normalize_theme_preference(query_theme)
+    if normalized_query_theme is not None:
+        return normalized_query_theme
+
     env_theme = os.environ.get("SALTGUI_THEME", "").strip().lower()
-    if env_theme in {"auto", "light", "dark"}:
-        return env_theme
+    normalized_env_theme = _normalize_theme_preference(env_theme)
+    if normalized_env_theme is not None:
+        return normalized_env_theme
 
     try:
         if not MASTER_CONFIG_FILE.is_file():
             return "auto"
         with MASTER_CONFIG_FILE.open(encoding="utf-8") as handle:
             config = yaml.safe_load(handle) or {}
-        theme = str(config.get("saltgui_theme", "auto")).strip().lower()
+        theme = _normalize_theme_preference(str(config.get("saltgui_theme", "auto")))
     except Exception:
         return "auto"
 
-    if theme in {"auto", "light", "dark"}:
+    if theme is not None:
         return theme
     return "auto"
 
 
-def _theme_bootstrap_snippet() -> str:
-    configured_theme = json.dumps(_read_theme_preference())
+def _theme_bootstrap_snippet(configured_theme: str) -> str:
+    configured_theme = json.dumps(configured_theme)
     return f"""
 <script>
 (() => {{
@@ -303,11 +319,11 @@ class SaltProxyHandler(BaseHTTPRequestHandler):
             return
 
         if request_path.startswith("/app/"):
-            self._serve_static(APP_DIR, request_path[len("/app/"):], spa_fallback=True)
+            self._serve_static(APP_DIR, request_path[len("/app/"):], spa_fallback=True, query=parsed.query)
             return
 
         if request_path.startswith("/static/"):
-            self._serve_static(STATIC_DIR, request_path[len("/static/"):], spa_fallback=False)
+            self._serve_static(STATIC_DIR, request_path[len("/static/"):], spa_fallback=False, query=parsed.query)
             return
 
         backend_path = self._api_backend_path(request_path, parsed.query)
@@ -369,7 +385,7 @@ class SaltProxyHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
-    def _serve_static(self, base_dir: Path, relative_path: str, spa_fallback: bool) -> None:
+    def _serve_static(self, base_dir: Path, relative_path: str, spa_fallback: bool, query: str = "") -> None:
         normalized = posixpath.normpath("/" + relative_path).lstrip("/")
         target = (base_dir / normalized).resolve()
 
@@ -394,14 +410,27 @@ class SaltProxyHandler(BaseHTTPRequestHandler):
             return
 
         if target == APP_DIR / "index.html":
-            self._serve_app_index(target)
+            self._serve_app_index(target, query)
             return
 
         self._serve_file(target)
 
-    def _serve_app_index(self, path: Path) -> None:
+    def _serve_app_index(self, path: Path, query: str = "") -> None:
         html = path.read_text(encoding="utf-8")
-        theme_bootstrap = _theme_bootstrap_snippet()
+        configured_theme = _read_theme_preference(query)
+        theme_bootstrap = _theme_bootstrap_snippet(configured_theme)
+
+        html = re.sub(
+            r"<html(?P<attrs>[^>]*)>",
+            lambda match: (
+                f"<html{match.group('attrs')} data-theme=\"{configured_theme}\" "
+                f"data-theme-preference=\"{configured_theme}\">"
+                if configured_theme in {"light", "dark"}
+                else f"<html{match.group('attrs')} data-theme-preference=\"{configured_theme}\">"
+            ),
+            html,
+            count=1,
+        )
 
         if theme_bootstrap not in html:
             html = html.replace(
