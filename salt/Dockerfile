@@ -20,8 +20,9 @@ RUN apk add --no-cache \
  && wget -O /tmp/saltgui.tar.gz "https://github.com/${SALTGUI_REPOSITORY}/archive/${SALTGUI_REF}.tar.gz" \
  && mkdir -p /opt /var/cache/lighttpd /run/lighttpd \
  && tar -xzf /tmp/saltgui.tar.gz -C /tmp \
- && mv "/tmp/SaltGUI-${SALTGUI_REF}/saltgui" /opt/saltgui \
- && rm -rf "/tmp/SaltGUI-${SALTGUI_REF}" /tmp/saltgui.tar.gz
+ && SALTGUI_SRC_DIR="$(find /tmp -maxdepth 1 -type d -name 'SaltGUI-*' | head -n 1)" \
+ && mv "${SALTGUI_SRC_DIR}/saltgui" /opt/saltgui \
+ && rm -rf "${SALTGUI_SRC_DIR}" /tmp/saltgui.tar.gz
 
 # Build arguments
 ARG BUILD_ARCH
