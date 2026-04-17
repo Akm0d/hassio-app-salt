@@ -15,12 +15,10 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from salt_ingress_auth_lib import authenticate_ingress
-import yaml
 
 BOOTSTRAP_FILE = Path("/opt/ha-salt-ingress/index.html")
 APP_DIR = Path("/opt/saltgui")
 STATIC_DIR = APP_DIR / "static"
-MASTER_CONFIG_FILE = Path("/etc/salt/master")
 API_HOST = "127.0.0.1"
 API_PORT = 3333
 INGRESS_PREFIX = re.compile(r"^/(?:api/)?hassio_ingress/[^/]+(?P<rest>/.*)?$")
@@ -117,163 +115,6 @@ LOGIN_HINT_SNIPPET = """
   window.addEventListener("DOMContentLoaded", applyLoginHints);
   applyLoginHints();
 })();
-</script>
-"""
-
-
-def _normalize_theme_preference(theme: str | None) -> str | None:
-    if theme is None:
-        return None
-
-    normalized = theme.strip().lower()
-    if normalized in {"auto", "light", "dark"}:
-        return normalized
-    return None
-
-
-def _read_theme_preference(query: str = "") -> str:
-    query_theme = urllib.parse.parse_qs(query).get("theme", [None])[-1]
-    normalized_query_theme = _normalize_theme_preference(query_theme)
-    if normalized_query_theme is not None:
-        return normalized_query_theme
-
-    env_theme = os.environ.get("SALTGUI_THEME", "").strip().lower()
-    normalized_env_theme = _normalize_theme_preference(env_theme)
-    if normalized_env_theme is not None:
-        return normalized_env_theme
-
-    try:
-        if not MASTER_CONFIG_FILE.is_file():
-            return "auto"
-        with MASTER_CONFIG_FILE.open(encoding="utf-8") as handle:
-            config = yaml.safe_load(handle) or {}
-        theme = _normalize_theme_preference(str(config.get("saltgui_theme", "auto")))
-    except Exception:
-        return "auto"
-
-    if theme is not None:
-        return theme
-    return "auto"
-
-
-def _theme_bootstrap_snippet(configured_theme: str) -> str:
-    configured_theme = json.dumps(configured_theme)
-    return f"""
-<script>
-(() => {{
-  const configuredTheme = {configured_theme};
-
-  const getParentHints = () => {{
-    if (window.self === window.top) {{
-      return "";
-    }}
-    try {{
-      const parentDoc = window.parent.document;
-      return [
-        parentDoc.documentElement.dataset.theme || "",
-        parentDoc.documentElement.getAttribute("theme") || "",
-        parentDoc.documentElement.className || "",
-        parentDoc.body?.className || "",
-      ].join(" ").toLowerCase();
-    }} catch (_error) {{
-      return "";
-    }}
-  }};
-
-  const parseColor = (value) => {{
-    if (!value || value === "transparent") {{
-      return null;
-    }}
-
-    const match = value.match(/^rgba?\\(([^)]+)\\)$/i);
-    if (!match) {{
-      return null;
-    }}
-
-    const channels = match[1].split(",").map((channel) => Number.parseFloat(channel.trim()));
-    if (channels.length < 3 || channels.slice(0, 3).some((channel) => Number.isNaN(channel))) {{
-      return null;
-    }}
-
-    const alpha = channels.length > 3 ? channels[3] : 1;
-    if (Number.isNaN(alpha) || alpha <= 0) {{
-      return null;
-    }}
-
-    return channels.slice(0, 3);
-  }};
-
-  const isDarkColor = (value) => {{
-    const channels = parseColor(value);
-    if (!channels) {{
-      return null;
-    }}
-
-    const [red, green, blue] = channels;
-    const brightness = (red * 299 + green * 587 + blue * 114) / 1000;
-    return brightness < 140;
-  }};
-
-  const getParentComputedTheme = () => {{
-    if (window.self === window.top || !window.getComputedStyle) {{
-      return null;
-    }}
-
-    try {{
-      const parentDoc = window.parent.document;
-      const candidates = [window.getComputedStyle(parentDoc.documentElement).backgroundColor];
-      if (parentDoc.body) {{
-        candidates.push(window.getComputedStyle(parentDoc.body).backgroundColor);
-      }}
-
-      for (const candidate of candidates) {{
-        const isDark = isDarkColor(candidate);
-        if (isDark !== null) {{
-          return isDark;
-        }}
-      }}
-    }} catch (_error) {{
-      return null;
-    }}
-
-    return null;
-  }};
-
-  const wantsDarkTheme = () => {{
-    if (configuredTheme === "dark") {{
-      return true;
-    }}
-    if (configuredTheme === "light") {{
-      return false;
-    }}
-
-    const hints = getParentHints();
-    if (/(^|\\s)(light)(\\s|$)/.test(hints)) {{
-      return false;
-    }}
-    if (/(^|\\s)(dark|night)(\\s|$)/.test(hints)) {{
-      return true;
-    }}
-
-    const computedTheme = getParentComputedTheme();
-    if (computedTheme !== null) {{
-      return computedTheme;
-    }}
-
-    return !!(window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
-  }};
-
-  try {{
-    window.localStorage.setItem("theme_default", configuredTheme);
-    window.sessionStorage.setItem("theme", configuredTheme);
-  }} catch (_error) {{
-    // Ignore storage failures in restricted browsers.
-  }}
-
-  const root = document.documentElement;
-  root.dataset.themePreference = configuredTheme;
-  root.dataset.theme = wantsDarkTheme() ? "dark" : "light";
-}})();
 </script>
 """
 
@@ -417,27 +258,6 @@ class SaltProxyHandler(BaseHTTPRequestHandler):
 
     def _serve_app_index(self, path: Path, query: str = "") -> None:
         html = path.read_text(encoding="utf-8")
-        configured_theme = _read_theme_preference(query)
-        theme_bootstrap = _theme_bootstrap_snippet(configured_theme)
-
-        html = re.sub(
-            r"<html(?P<attrs>[^>]*)>",
-            lambda match: (
-                f"<html{match.group('attrs')} data-theme=\"{configured_theme}\" "
-                f"data-theme-preference=\"{configured_theme}\">"
-                if configured_theme in {"light", "dark"}
-                else f"<html{match.group('attrs')} data-theme-preference=\"{configured_theme}\">"
-            ),
-            html,
-            count=1,
-        )
-
-        if theme_bootstrap not in html:
-            html = html.replace(
-                "<title>SaltGUI</title>",
-                f"<title>SaltGUI</title>\n{theme_bootstrap}",
-                1,
-            )
 
         def add_cache_buster(match: re.Match[str]) -> str:
             attr = match.group("attr")
