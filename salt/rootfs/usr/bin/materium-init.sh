@@ -202,6 +202,8 @@ export UV_PROJECT_ENVIRONMENT=${uv_project_environment}
 export UV_LINK_MODE=copy
 export UV_PYTHON=3.14
 export UV_PYTHON_INSTALL_DIR=${UV_PYTHON_INSTALL_DIR:-/data/materium/uv-python}
+export CC=clang
+export CXX=clang++
 EOF
 }
 

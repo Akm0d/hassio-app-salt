@@ -47,6 +47,8 @@ RUN apk add --no-cache --upgrade \
     build-base \
     ca-certificates \
     cargo \
+    clang \
+    compiler-rt \
     curl \
     git \
     libffi-dev \
