@@ -1,146 +1,148 @@
 # Home Assistant Add-on: Salt
 
-This add-on runs a Salt master together with SaltGUI. SaltGUI is published
-through Home Assistant ingress, authenticated Home Assistant admin users are
-automatically signed in, and the Salt state tree stays editable from the Home
-Assistant host.
+This add-on is the Home Assistant wrapper for Materium. Materium is the Salt
+application; this repository supplies the add-on packaging, ingress, service
+supervision, and persistent storage layout.
 
-## What It Provides
+## Runtime Direction
 
-- A Salt master listening on TCP `4505` and `4506`
-- SaltGUI through an admin-only Home Assistant sidebar panel
-- Automatic SaltGUI sign-in for authenticated Home Assistant admin users
-- Internal `salt-api` service on TCP `3333`
-- Editable Salt state and pillar trees at container `/srv/salt` and `/srv/pillar`
-- Persistent Salt PKI, cache, job data, and tokens in `/data`
+The Materium runtime replaces the old SaltGUI/salt-api design:
 
-## Installation
+- Materium manages Salt directly with Salt's Python APIs.
+- No `salt-api` process is required.
+- No SaltGUI ingress proxy is required.
+- Home Assistant ingress serves `materium-web`.
+- Supervised services are:
+  - `salt-master`
+  - `salt-minion`
+  - `materium-web`
+  - `materium-worker`
+  - `materium-dev-reloader`
 
-1. Install the add-on.
-2. Set a `gui_password`, or leave it blank once and read the generated password
-   from the add-on log.
-3. Start the add-on. The Salt master starts automatically as part of add-on
-   startup.
-4. Open the Salt sidebar panel in Home Assistant as an admin user.
-5. The add-on signs you in to SaltGUI automatically.
-   Manual logins use Salt's `pam` external auth with username `saltadmin`.
-6. Point Salt minions at a hostname or IP address they can actually resolve and
-   reach on ports `4505` and `4506`.
+The add-on runtime no longer starts SaltGUI, `salt-api`, or an ingress proxy.
 
-## Configuration
+## Configuration Model
 
-Sample configuration:
+The committed Materium config in the application repository is a template. The
+Home Assistant add-on should generate a runtime Materium config with the same
+shape.
 
-```yaml
-log_level: info
-gui_password: ""
-auto_accept: false
-```
+The important option is `salt.base_dir`. Materium rewrites managed Salt paths
+under that directory so the add-on can keep runtime data in persistent Home
+Assistant storage.
 
-### Option: `log_level`
-
-Controls Salt master and API log verbosity.
-
-### Option: `gui_password`
-
-Password for the SaltGUI service account. If left empty, the add-on generates
-one on first boot, stores it in `/data/generated_gui_password`, and prints it
-to the log.
-
-Manual SaltGUI logins use the fixed username `saltadmin`.
-
-### Option: `auto_accept`
-
-If enabled, the Salt master automatically accepts new minion keys. Leave this
-disabled unless you intentionally want an open enrollment model.
-
-## Fixed Master Defaults
-
-This add-on intentionally keeps the core Salt master layout opinionated so the
-Home Assistant integration stays predictable:
-
-- `publish_port: 4505`
-- `ret_port: 4506`
-- `file_roots: /srv/salt`
-- `pillar_roots: /srv/pillar`
-- `pki_dir: /data/pki/master`
-- `cachedir: /data/cache/master`
-- `token_dir: /data/tokens`
-- `sqlite_queue_dir: /data/queues`
-- `state_events: True`
-- internal `salt-api` / SaltGUI service on `127.0.0.1:3333`
-
-Only `log_level`, `gui_password`, and `auto_accept` are
-exposed in the add-on UI. Everything else uses these static defaults so minion
-connectivity, ingress, and host-editable state paths stay consistent.
-
-## File Layout
-
-The add-on creates and uses these paths:
-
-- `/srv/salt`
-- `/srv/pillar`
-- `/data/pki/master`
-- `/data/cache/master`
-- `/data/tokens`
-
-If they do not exist yet, the add-on creates them automatically. It also writes
-stub top files so the directories are ready to edit from the host without
-shipping example states:
-
-- `/srv/salt/top.sls`
-- `/srv/pillar/top.sls`
-
-Inside the container, Salt uses the standard `/srv/salt` and `/srv/pillar`
-paths. Those are backed by Home Assistant's writable `share` mapping, so on the
-host you edit:
-
-- `/share/salt`
-- `/share/pillar`
-
-The cryptographic material and other Salt runtime data stay private and
-persistent in `/data`.
-
-## Access Paths
-
-- Sidebar panel: Home Assistant ingress through `lighttpd`
-- SaltGUI is intended to be opened from the Home Assistant sidebar
-- Salt master ports for minions: `<home-assistant-host>:4505` and `:4506`
-
-The SaltGUI HTTP service still runs internally on port `3333`, but it is not
-advertised as the normal user entrypoint. The intended UI path is the admin-only
-Home Assistant panel.
-
-The Salt master ports are published on the Home Assistant host, so minions on
-your LAN can connect without needing access to the add-on's internal Docker
-network.
-
-## Connecting Minions
-
-Point a Salt minion at the Home Assistant host running this add-on:
+Recommended add-on storage shape:
 
 ```yaml
-master: your-home-assistant-host
+salt:
+  base_dir: /data/materium
+  master:
+    log_level: info
+  minion:
+    log_level: info
+    master: localhost
 ```
 
-Then restart the minion and accept the key from SaltGUI or the Salt CLI.
+The `salt.master` and `salt.minion` sections describe Materium-managed embedded
+processes. They are not intended to expose arbitrary Salt master/minion config
+through the Home Assistant options UI.
 
-## Security Notes
+The add-on also supports an explicit development mode for running synced
+Materium source on a real Home Assistant host:
 
-- The Home Assistant panel is marked admin-only.
-- Home Assistant ingress identifies the authenticated user and the add-on
-  creates a SaltGUI session for that request.
-- The built-in SaltGUI service account `saltadmin` gets broad
-  SaltGUI-compatible permissions:
-  `.*`, `@runner`, `@wheel`, and `@jobs`.
-- If you open SaltGUI without ingress auto-login, sign in manually as
-  `saltadmin` with the configured or generated GUI password.
-- The Salt master publishes on the host's standard `4505` and `4506` ports so
-  LAN minions can connect without needing Docker-internal addressing.
-- Set a strong password before exposing Salt master ports beyond your trusted
-  network.
-- `auto_accept: false` is the safer default.
+```yaml
+dev_mode: true
+dev_source: /srv/materium-dev/materium
+```
 
-## Changelog & Releases
+When `dev_mode` is disabled, the add-on runs the packaged checkout in
+`/opt/materium`. When it is enabled, `materium-web` and `materium-worker` run
+from `dev_source`, and uv keeps the development virtual environment under
+`/data/materium/dev-venv`.
 
-This repository uses GitHub releases for version history.
+## Persistent Storage Layout
+
+With `salt.base_dir: /data/materium`, Materium-generated paths live under:
+
+- `/data/materium/master`
+- `/data/materium/minion`
+- `/data/materium/cache.sqlite3`
+- `/data/materium/targets.yaml`
+
+The Salt file and pillar roots are generated from the master layout:
+
+- `/data/materium/master/srv/salt`
+- `/data/materium/master/srv/pillar`
+
+The add-on may map or symlink these to host-editable locations if needed, but
+Materium should remain the owner of the generated Salt configuration.
+
+## Service Controls
+
+Materium exposes service status and restart hooks:
+
+```text
+GET  /api/runtime/services
+POST /api/runtime/services/salt-master/restart
+POST /api/runtime/services/salt-minion/restart
+```
+
+In the add-on, these endpoints should call the supervisor/s6 restart mechanism
+for the embedded `salt-master` and local `salt-minion` services.
+
+Remote minion restart is intentionally outside this v1 runtime control surface.
+It can later be implemented as a normal Salt job.
+
+## Salt Access
+
+Minions connect to the embedded Salt master on standard Salt transport ports:
+
+- `4505/tcp`: Salt publish port
+- `4506/tcp`: Salt return port
+
+Materium reads keys, minions, grains, jobs, events, state functions, formulas,
+targets, SLS, and pillar through direct Salt APIs and cached read models.
+Views should render cached data first and refresh in the background.
+
+## Local Wrapper Testing
+
+Use the Materium repository for Python development and the end-to-end Salt
+integration tests:
+
+```bash
+cd materium
+uv sync --extra test
+uv run pytest
+```
+
+For live Home Assistant development, install this repository as an add-on
+repository, sync source from the shared workspace, then enable `dev_mode`:
+
+```bash
+tar -C /home/akmod/code/materium -czf - . \
+  | ssh root@salt "mkdir -p /share/materium-dev/materium && tar -xzf - -C /share/materium-dev/materium"
+```
+
+From `/home/akmod/code`, the VS Code task `HA: sync + restart Materium` performs
+that sync and touches `/share/materium-dev/restart`. The add-on's
+`materium-dev-reloader` service watches the matching container path and restarts
+only `materium-web` and `materium-worker`.
+
+Use this add-on repository for Home Assistant packaging and container smoke
+tests. From the shared `/home/akmod/code` workspace, press the VS Code launch
+entry `hassio-app-salt: docker compose up`, or run:
+
+```bash
+docker compose up --build --remove-orphans
+```
+
+The local dev harness uses:
+
+- container name: `materium-addon-dev`
+- Materium web: `http://127.0.0.1:8099/`
+- Salt publish/return ports: `4505` and `4506`
+- storage: `/home/akmod/code/.dev/hassio-app-salt`
+
+It builds the image and runs `salt-master`, `salt-minion`, `materium-web`,
+`materium-worker`, and `materium-dev-reloader` in the foreground so Docker's
+normal output is the debug surface.

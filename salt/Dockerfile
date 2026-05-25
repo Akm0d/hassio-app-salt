@@ -1,28 +1,71 @@
 ARG BUILD_FROM=ghcr.io/hassio-addons/base:20.0.1
 # hadolint ignore=DL3006
+FROM ghcr.io/astral-sh/uv:latest AS uv-bin
+
+# hadolint ignore=DL3006
 FROM ${BUILD_FROM}
 
-ARG SALTGUI_REPOSITORY=Akm0d/SaltGUI
-ARG SALTGUI_REF=master
+ARG MATERIUM_REPOSITORY=Akm0d/materium
+ARG MATERIUM_REF=main
+ARG MATERIUM_INSTALL_FROM_GIT=true
 
 # Copy root filesystem
 COPY rootfs /
+COPY --from=uv-bin /uv /uvx /usr/local/bin/
+
+RUN rm -rf \
+    /etc/s6-overlay/s6-rc.d/api \
+    /etc/s6-overlay/s6-rc.d/example1 \
+    /etc/s6-overlay/s6-rc.d/example2 \
+    /etc/s6-overlay/s6-rc.d/init-example \
+    /etc/s6-overlay/s6-rc.d/master \
+    /etc/s6-overlay/s6-rc.d/proxy \
+    /etc/s6-overlay/s6-rc.d/user2 \
+    /etc/s6-overlay/s6-rc.d/user/contents.d/api \
+    /etc/s6-overlay/s6-rc.d/user/contents.d/master \
+    /etc/s6-overlay/s6-rc.d/user/contents.d/proxy \
+    /package/admin/s6-overlay-*/etc/s6-rc/sources/base-addon-banner \
+    /package/admin/s6-overlay-*/etc/s6-rc/sources/base-addon-log-level \
+    /package/admin/s6-overlay-*/etc/s6-rc/sources/base/contents.d/base-addon-banner \
+    /package/admin/s6-overlay-*/etc/s6-rc/sources/base/contents.d/base-addon-log-level \
+    /package/admin/s6-overlay-*/etc/s6-rc/sources/fix-attrs/dependencies.d/base-addon-banner \
+    /package/admin/s6-overlay-*/etc/s6-rc/sources/legacy-cont-init/dependencies.d/base-addon-log-level \
+    /package/admin/s6-overlay-*/etc/s6-rc/sources/top/contents.d/user2 \
+    /usr/bin/salt-api.sh \
+    /usr/bin/salt-ingress-auth.py \
+    /usr/bin/salt-init.sh \
+    /usr/bin/salt-proxy.py \
+    /usr/bin/salt-proxy.sh \
+    /usr/bin/salt-rest-api.py \
+    /usr/bin/salt_ingress_auth_lib.py
 
 # Setup base
-RUN apk add --no-cache \
-    lighttpd \
-    py3-cherrypy \
-    py3-ws4py \
-    salt-api \
+RUN apk add --no-cache --upgrade \
+    musl \
+    musl-utils \
+    libcrypto3 \
+    libssl3 \
+    openssl-dev \
+ && apk add --no-cache \
+    bash \
+    build-base \
+    ca-certificates \
+    cargo \
+    curl \
+    git \
+    libffi-dev \
+    python3 \
+    rust \
     salt-master \
-    shadow \
-    wget \
- && wget -O /tmp/saltgui.tar.gz "https://github.com/${SALTGUI_REPOSITORY}/archive/${SALTGUI_REF}.tar.gz" \
- && mkdir -p /opt /var/cache/lighttpd /run/lighttpd \
- && tar -xzf /tmp/saltgui.tar.gz -C /tmp \
- && SALTGUI_SRC_DIR="$(find /tmp -maxdepth 1 -type d -name 'SaltGUI-*' | head -n 1)" \
- && mv "${SALTGUI_SRC_DIR}/saltgui" /opt/saltgui \
- && rm -rf "${SALTGUI_SRC_DIR}" /tmp/saltgui.tar.gz
+    salt-minion \
+    zeromq-dev \
+ && if [[ "${MATERIUM_INSTALL_FROM_GIT}" == "true" ]]; then \
+        git clone --depth 1 --branch "${MATERIUM_REF}" "https://github.com/${MATERIUM_REPOSITORY}.git" /opt/materium \
+        && cd /opt/materium \
+        && UV_PROJECT_ENVIRONMENT=/opt/materium/.venv UV_LINK_MODE=copy UV_PYTHON=3.14 uv sync --frozen --extra test; \
+    else \
+        mkdir -p /opt/materium; \
+    fi
 
 # Build arguments
 ARG BUILD_ARCH

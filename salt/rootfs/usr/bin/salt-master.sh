@@ -1,18 +1,16 @@
-#!/command/with-contenv bashio
+#!/usr/bin/env bash
 # shellcheck shell=bash
-# ==============================================================================
-# Home Assistant Add-on: Salt
-# Run salt-master in the foreground.
-# ==============================================================================
-
 set -euo pipefail
 
 main() {
-    local log_level
-
-    log_level="$(bashio::config 'log_level')"
-    /usr/bin/salt-init.sh
-    bashio::log.info "Starting salt-master on ports 4505/4506"
-    exec salt-master -c /etc/salt -l "${log_level}"
+    /usr/bin/materium-init.sh
+    # shellcheck disable=SC1091
+    source /run/materium-env
+    printf '[salt-master] Starting salt-master on ports 4505/4506\n'
+    exec salt-master \
+        -c /data/materium/master/etc/salt \
+        -l "${MATERIUM_LOG_LEVEL}" \
+        --log-file=/dev/stderr \
+        --log-file-level="${MATERIUM_LOG_LEVEL}"
 }
 main "$@"
