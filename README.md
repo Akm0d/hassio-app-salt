@@ -24,27 +24,19 @@ configuration model.
 ## Home Assistant development loop
 
 Install this repository as a Home Assistant add-on repository, then install the
-Salt add-on. For rapid Materium development on a real Home Assistant host, sync
-the local Materium checkout into Home Assistant storage before enabling
-development mode:
+Salt add-on. The image does not clone the private Materium repository during
+build; for rapid development, sync the local Materium checkout into Home
+Assistant storage before starting the add-on:
 
 ```bash
-tar -C /home/akmod/code/materium -czf - . \
-  | ssh root@salt "mkdir -p /share/materium-dev/materium && tar -xzf - -C /share/materium-dev/materium"
+/home/akmod/code/sync-materium-to-ha.sh
 ```
 
-Then turn on the add-on development options:
-
-```yaml
-dev_mode: true
-dev_source: /srv/materium-dev/materium
-```
-
-The add-on sees that path as `/srv/materium-dev/materium`. From the shared
-`/home/akmod/code` workspace, use the VS Code task
-`HA: sync + restart Materium` to sync source and touch a restart marker in
-`/share/materium-dev`. The add-on watches that marker and restarts only
-`materium-web` and `materium-worker`.
+The script syncs to `root@hearth.lan:/share/materium-dev/materium` and touches
+`/share/materium-dev/restart`. The add-on sees that source as
+`/srv/materium-dev/materium` and runs from it automatically when
+`pyproject.toml` is present. The add-on watches the restart marker and restarts
+only `materium-web` and `materium-worker`.
 
 ## Local dev container
 

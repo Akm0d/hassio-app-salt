@@ -29,10 +29,6 @@ ports_description:
 options:
   log_level: info
   auto_accept: false
-  dev_mode: false
-  dev_source: /srv/materium-dev/materium
 schema:
   log_level: list(trace|debug|info|notice|warning|error|fatal)
   auto_accept: bool
-  dev_mode: bool
-  dev_source: str

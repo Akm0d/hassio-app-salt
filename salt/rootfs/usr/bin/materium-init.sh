@@ -9,6 +9,7 @@ readonly MINION_CONFIG_DIR="${BASE_DIR}/minion/etc/salt"
 readonly LOCAL_CONFIG_DIR="${BASE_DIR}/local/etc/salt"
 readonly SALT_ROOT="${BASE_DIR}/master/srv/salt"
 readonly PILLAR_ROOT="${BASE_DIR}/master/srv/pillar"
+readonly SYNCED_APP_DIR="/srv/materium-dev/materium"
 readonly INIT_LOCK_DIR="/run/materium-init.lock"
 readonly INIT_READY_FILE="/run/materium-init.ready"
 
@@ -179,19 +180,12 @@ EOF
 
 write_environment() {
     local log_level="${1}"
-    local dev_mode="${2}"
-    local dev_source="${3}"
     local app_dir="/opt/materium"
     local uv_project_environment="${MATERIUM_UV_PROJECT_ENVIRONMENT:-/opt/materium/.venv}"
 
-    if [[ "${dev_mode}" == "true" ]]; then
-        app_dir="${dev_source}"
+    if [[ -f "${SYNCED_APP_DIR}/pyproject.toml" ]]; then
+        app_dir="${SYNCED_APP_DIR}"
         uv_project_environment="${MATERIUM_UV_PROJECT_ENVIRONMENT:-${BASE_DIR}/dev-venv}"
-
-        if [[ ! -f "${app_dir}/pyproject.toml" ]]; then
-            log_info "Development mode is enabled but ${app_dir}/pyproject.toml does not exist"
-            return 1
-        fi
     fi
 
     cat <<EOF >/run/materium-env
@@ -212,31 +206,31 @@ EOF
 }
 
 main() {
+    local log_level
+
+    log_level="$(read_option 'log_level' 'info')"
+
     if [[ -f "${INIT_READY_FILE}" ]]; then
+        write_environment "${log_level}"
         return 0
     fi
 
     acquire_init_lock
 
     if [[ -f "${INIT_READY_FILE}" ]]; then
+        write_environment "${log_level}"
         return 0
     fi
 
-    local log_level
     local auto_accept
-    local dev_mode
-    local dev_source
 
-    log_level="$(read_option 'log_level' 'info')"
     auto_accept="$(read_option 'auto_accept' 'true')"
-    dev_mode="$(read_option 'dev_mode' 'false')"
-    dev_source="$(read_option 'dev_source' '/srv/materium-dev/materium')"
 
     ensure_tree
     write_master_config "${auto_accept}" "${log_level}"
     write_minion_config "${log_level}"
     write_local_config "${log_level}"
-    write_environment "${log_level}" "${dev_mode}" "${dev_source}"
+    write_environment "${log_level}"
 
     touch "${INIT_READY_FILE}"
     log_info "Prepared Materium runtime under ${BASE_DIR}"

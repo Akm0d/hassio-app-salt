@@ -6,9 +6,3 @@ configuration:
   auto_accept:
     name: Auto accept minion keys
     description: Automatically accept new Salt minion keys.
-  dev_mode:
-    name: Run synced Materium source
-    description: Run Materium from the configured development source path instead of the packaged application.
-  dev_source:
-    name: Materium development source
-    description: Container path to the synced Materium checkout used when development mode is enabled.

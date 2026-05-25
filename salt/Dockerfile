@@ -5,10 +5,6 @@ FROM ghcr.io/astral-sh/uv:latest AS uv-bin
 # hadolint ignore=DL3006
 FROM ${BUILD_FROM}
 
-ARG MATERIUM_REPOSITORY=Akm0d/materium
-ARG MATERIUM_REF=main
-ARG MATERIUM_INSTALL_FROM_GIT=true
-
 # Copy root filesystem
 COPY rootfs /
 COPY --from=uv-bin /uv /uvx /usr/local/bin/
@@ -59,13 +55,7 @@ RUN apk add --no-cache --upgrade \
     salt-master \
     salt-minion \
     zeromq-dev \
- && if [[ "${MATERIUM_INSTALL_FROM_GIT}" == "true" ]]; then \
-        git clone --depth 1 --branch "${MATERIUM_REF}" "https://github.com/${MATERIUM_REPOSITORY}.git" /opt/materium \
-        && cd /opt/materium \
-        && UV_PROJECT_ENVIRONMENT=/opt/materium/.venv UV_LINK_MODE=copy UV_PYTHON=3.14 uv sync --frozen --extra test; \
-    else \
-        mkdir -p /opt/materium; \
-    fi
+ && mkdir -p /opt/materium
 
 # Build arguments
 ARG BUILD_ARCH

@@ -47,18 +47,12 @@ The `salt.master` and `salt.minion` sections describe Materium-managed embedded
 processes. They are not intended to expose arbitrary Salt master/minion config
 through the Home Assistant options UI.
 
-The add-on also supports an explicit development mode for running synced
-Materium source on a real Home Assistant host:
-
-```yaml
-dev_mode: true
-dev_source: /srv/materium-dev/materium
-```
-
-When `dev_mode` is disabled, the add-on runs the packaged checkout in
-`/opt/materium`. When it is enabled, `materium-web` and `materium-worker` run
-from `dev_source`, and uv keeps the development virtual environment under
-`/data/materium/dev-venv`.
+For live development on a real Home Assistant host, the add-on auto-detects
+synced Materium source at `/srv/materium-dev/materium`. When that path contains
+`pyproject.toml`, `materium-web` and `materium-worker` run from the synced
+source and uv keeps the development virtual environment under
+`/data/materium/dev-venv`. Otherwise the add-on runs the packaged path
+`/opt/materium`.
 
 ## Persistent Storage Layout
 
@@ -116,15 +110,15 @@ uv run pytest
 ```
 
 For live Home Assistant development, install this repository as an add-on
-repository, sync source from the shared workspace, then enable `dev_mode`:
+repository, then sync source from the shared workspace. The image does not clone
+the private Materium repository during build.
 
 ```bash
-tar -C /home/akmod/code/materium -czf - . \
-  | ssh root@salt "mkdir -p /share/materium-dev/materium && tar -xzf - -C /share/materium-dev/materium"
+/home/akmod/code/sync-materium-to-ha.sh
 ```
 
 From `/home/akmod/code`, the VS Code task `HA: sync + restart Materium` performs
-that sync and touches `/share/materium-dev/restart`. The add-on's
+the same sync and touches `/share/materium-dev/restart`. The add-on's
 `materium-dev-reloader` service watches the matching container path and restarts
 only `materium-web` and `materium-worker`.
 
