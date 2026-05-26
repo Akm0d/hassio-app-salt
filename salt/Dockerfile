@@ -51,11 +51,13 @@ RUN apk add --no-cache --upgrade \
     compiler-rt \
     curl \
     git \
+    jq \
     libffi-dev \
     python3 \
     rust \
     salt-master \
     salt-minion \
+    yq \
     zeromq-dev \
  && mkdir -p /opt/materium
 

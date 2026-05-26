@@ -32,18 +32,31 @@ options:
     port: 8099
     cache_db: /data/materium/cache.sqlite
     base_dir: /data/materium/salt
+    formula_repositories:
+      - name: Official
+        url: https://github.com/saltstack-formulas
+        plugin: github
+      - name: Community
+        url: https://github.com/salt-formulas
+        plugin: github
   master:
     log_level: info
     auto_accept: false
   minion:
     log_level: info
     master: localhost
+    id: ${HOSTNAME}
 schema:
   materium:
     host: str
     port: port
     cache_db: str
     base_dir: str
+    formula_repositories: list(
+      name: str
+      url: str
+      plugin: str
+    )
   master:
     log_level: list(trace|debug|info|notice|warning|error|fatal)
     auto_accept: bool
