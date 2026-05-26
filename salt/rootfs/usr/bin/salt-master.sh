@@ -8,7 +8,7 @@ main() {
     source /run/materium-env
     printf '[salt-master] Starting salt-master on ports 4505/4506\n'
     exec salt-master \
-        -c /data/materium/master/etc/salt \
+        -c "$(dirname "${MATERIUM_MASTER_CONFIG}")" \
         -l "${MATERIUM_LOG_LEVEL}" \
         --log-file=/dev/stderr \
         --log-file-level="${MATERIUM_LOG_LEVEL}"

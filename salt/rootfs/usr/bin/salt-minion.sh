@@ -17,7 +17,7 @@ main() {
     wait_for_master
     printf '[salt-minion] Starting local salt-minion\n'
     exec salt-minion \
-        -c /data/materium/minion/etc/salt \
+        -c "$(dirname "${MATERIUM_MINION_CONFIG}")" \
         -l "${MATERIUM_LOG_LEVEL}" \
         --log-file=/dev/stderr \
         --log-file-level="${MATERIUM_LOG_LEVEL}"

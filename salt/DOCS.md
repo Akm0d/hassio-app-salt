@@ -27,25 +27,27 @@ The committed Materium config in the application repository is a template. The
 Home Assistant add-on should generate a runtime Materium config with the same
 shape.
 
-The important option is `salt.base_dir`. Materium rewrites managed Salt paths
-under that directory so the add-on can keep runtime data in persistent Home
-Assistant storage.
+The important option is `materium.base_dir`. Materium rewrites managed Salt
+paths under that directory so the add-on can keep runtime data in persistent
+Home Assistant storage.
 
 Recommended add-on storage shape:
 
 ```yaml
-salt:
-  base_dir: /data/materium
-  master:
-    log_level: info
-  minion:
-    log_level: info
-    master: localhost
+materium:
+  base_dir: /data/materium/salt
+  cache_db: /data/materium/cache.sqlite
+master:
+  log_level: info
+  auto_accept: false
+minion:
+  log_level: info
+  master: localhost
 ```
 
-The `salt.master` and `salt.minion` sections describe Materium-managed embedded
-processes. They are not intended to expose arbitrary Salt master/minion config
-through the Home Assistant options UI.
+The top-level `master` and `minion` sections describe Materium-managed embedded
+processes. The add-on exposes common settings in the Home Assistant options UI
+and writes the full Materium POP runtime config to `/data/materium/materium.yaml`.
 
 For live development on a real Home Assistant host, the add-on auto-detects
 synced Materium source at `/srv/materium-dev/materium`. When that path contains
@@ -56,17 +58,17 @@ source and uv keeps the development virtual environment under
 
 ## Persistent Storage Layout
 
-With `salt.base_dir: /data/materium`, Materium-generated paths live under:
+With `materium.base_dir: /data/materium/salt`, Materium-generated paths live under:
 
-- `/data/materium/master`
-- `/data/materium/minion`
-- `/data/materium/cache.sqlite3`
-- `/data/materium/targets.yaml`
+- `/data/materium/salt/master`
+- `/data/materium/salt/minion`
+- `/data/materium/cache.sqlite`
+- `/data/materium/salt/targets.yaml`
 
 The Salt file and pillar roots are generated from the master layout:
 
-- `/data/materium/master/srv/salt`
-- `/data/materium/master/srv/pillar`
+- `/data/materium/salt/master/srv/salt`
+- `/data/materium/salt/master/srv/pillar`
 
 The add-on may map or symlink these to host-editable locations if needed, but
 Materium should remain the owner of the generated Salt configuration.

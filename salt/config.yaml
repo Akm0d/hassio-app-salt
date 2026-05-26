@@ -1,6 +1,6 @@
 ---
 name: Salt
-version: "0.14.29"
+version: "0.14.30"
 slug: salt
 description: Run Salt through Materium with admin-only ingress and host-editable state trees
 url: https://github.com/Akm0d/hassio-app-salt
@@ -27,8 +27,26 @@ ports_description:
   4505/tcp: Salt publish port
   4506/tcp: Salt return port
 options:
-  log_level: info
-  auto_accept: false
+  materium:
+    host: 0.0.0.0
+    port: 8099
+    cache_db: /data/materium/cache.sqlite
+    base_dir: /data/materium/salt
+  master:
+    log_level: info
+    auto_accept: false
+  minion:
+    log_level: info
+    master: localhost
 schema:
-  log_level: list(trace|debug|info|notice|warning|error|fatal)
-  auto_accept: bool
+  materium:
+    host: str
+    port: port
+    cache_db: str
+    base_dir: str
+  master:
+    log_level: list(trace|debug|info|notice|warning|error|fatal)
+    auto_accept: bool
+  minion:
+    log_level: list(trace|debug|info|notice|warning|error|fatal)
+    master: str

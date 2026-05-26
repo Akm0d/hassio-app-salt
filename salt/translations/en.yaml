@@ -1,8 +1,11 @@
 ---
 configuration:
-  log_level:
-    name: Log level
-    description: Control how much detail Salt writes to the add-on log.
-  auto_accept:
-    name: Auto accept minion keys
-    description: Automatically accept new Salt minion keys.
+  materium:
+    name: Materium
+    description: Materium web and storage settings.
+  master:
+    name: Salt master
+    description: Settings for the embedded Salt master.
+  minion:
+    name: Salt minion
+    description: Settings for the embedded local Salt minion.

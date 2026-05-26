@@ -26,7 +26,7 @@ main() {
     ensure_materium_source
     printf '[materium-worker] Starting Materium worker from %s\n' "${MATERIUM_APP_DIR}"
     cd "${MATERIUM_APP_DIR}"
-    exec uv run --extra test python -m hub prima.init.worker
+    exec uv run --extra test python -m hub -c "${MATERIUM_CONFIG}" prima.init.worker
 }
 
 main "$@"
