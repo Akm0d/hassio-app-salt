@@ -19,7 +19,10 @@ ensure_materium_source() {
 }
 
 main() {
-    /usr/bin/materium-init.sh
+    if [[ ! -f /run/materium-env ]]; then
+        printf '[materium-web] Missing /run/materium-env; init-salt did not complete\n' >&2
+        return 1
+    fi
     # shellcheck disable=SC1091
     source /run/materium-env
     wait_for_master
