@@ -55,7 +55,7 @@ export CXX=clang++
 EOF
 
     log_info "Writing materium configuration to ${MATERIUM_CONFIG}"
-    jq '{materium, master: (.master + {publish_port: .ports["4505/tcp"], ret_port: .ports["4506/tcp"]}), minion}' /data/options.json | yq -P '.' > "${MATERIUM_CONFIG}"
+    jq '{materium: (.materium + {port: .ingress_port}), master: (.master + {publish_port: .ports["4505/tcp"], ret_port: .ports["4506/tcp"]}), minion}' /data/options.json | yq -P '.' > "${MATERIUM_CONFIG}"
 
     log_info "App ready, releasing init lock and signaling readiness"
     touch "${INIT_READY_FILE}"
