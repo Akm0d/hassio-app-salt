@@ -53,7 +53,10 @@ schema:
   materium:
     host: str
     cache_db: str
-    formula_repositories: "list(name: str,url: str,plugin: str)"
+    formula_repositories:
+      - name: str
+        url: str
+        plugin: str
   master:
     log_level: list(trace|debug|info|notice|warning|error|fatal)
     auto_accept: bool
