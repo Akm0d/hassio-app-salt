@@ -7,6 +7,7 @@ FROM ${BUILD_FROM}
 
 # Copy root filesystem
 COPY rootfs /
+COPY config.yaml /etc/materium-addon/config.yaml
 COPY --from=uv-bin /uv /uvx /usr/local/bin/
 
 RUN rm -rf \

@@ -1,6 +1,6 @@
 ---
 name: Salt
-version: "0.14.31"
+version: "0.14.32"
 slug: salt
 description: Run fully managed salt master and minion services with a UI to manage SLS files, states, and more.
 url: https://github.com/Akm0d/hassio-app-salt
@@ -37,6 +37,9 @@ options:
       - name: Community
         url: https://github.com/salt-formulas
         plugin: github
+      - name: Openstack
+        url: https://github.com/openstack-archive
+        plugin: github
   master:
     log_level: info
     auto_accept: false
@@ -49,13 +52,8 @@ options:
 schema:
   materium:
     host: str
-    port: port
     cache_db: str
-    formula_repositories: list(
-      name: str
-      url: str
-      plugin: str
-    )
+    formula_repositories: "list(name: str,url: str,plugin: str)"
   master:
     log_level: list(trace|debug|info|notice|warning|error|fatal)
     auto_accept: bool
@@ -63,4 +61,5 @@ schema:
   minion:
     log_level: list(trace|debug|info|notice|warning|error|fatal)
     master: str
+    id: str
     root_dir: str

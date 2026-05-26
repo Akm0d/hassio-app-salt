@@ -4,8 +4,8 @@
 set -euo pipefail
 
 wait_for_master() {
-    until bash -c ":</dev/tcp/127.0.0.1/4506" >/dev/null 2>&1; do
-        printf '[salt-minion] Waiting for salt-master to accept connections on 4506\n'
+    until bash -c ":</dev/tcp/127.0.0.1/${MATERIUM_MASTER_RET_PORT}" >/dev/null 2>&1; do
+        printf '[salt-minion] Waiting for salt-master to accept connections on %s\n' "${MATERIUM_MASTER_RET_PORT}"
         sleep 2
     done
 }
@@ -15,12 +15,10 @@ main() {
     # shellcheck disable=SC1091
     source /run/materium-env
     wait_for_master
-    printf '[salt-minion] Starting local salt-minion\n'
+    printf '[salt-minion] Starting local salt-minion with config %s\n' "$(dirname "${MATERIUM_MINION_CONFIG}")"
     exec salt-minion \
         -c "$(dirname "${MATERIUM_MINION_CONFIG}")" \
-        -l "${MATERIUM_LOG_LEVEL}" \
-        --log-file=/dev/stderr \
-        --log-file-level="${MATERIUM_LOG_LEVEL}"
+        --log-file=/dev/stderr
 }
 
 main "$@"

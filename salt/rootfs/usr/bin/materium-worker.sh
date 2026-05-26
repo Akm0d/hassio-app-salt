@@ -4,7 +4,7 @@
 set -euo pipefail
 
 wait_for_master() {
-    until bash -c ":</dev/tcp/127.0.0.1/4506" >/dev/null 2>&1; do
+    until bash -c ":</dev/tcp/127.0.0.1/${MATERIUM_MASTER_RET_PORT}" >/dev/null 2>&1; do
         printf '[materium-worker] Waiting for salt-master before starting Materium worker\n'
         sleep 2
     done

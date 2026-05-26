@@ -4,7 +4,7 @@
 set -euo pipefail
 
 wait_for_master() {
-    until bash -c ":</dev/tcp/127.0.0.1/4506" >/dev/null 2>&1; do
+    until bash -c ":</dev/tcp/127.0.0.1/${MATERIUM_MASTER_RET_PORT}" >/dev/null 2>&1; do
         printf '[materium-web] Waiting for salt-master before starting Materium web\n'
         sleep 2
     done
@@ -24,7 +24,7 @@ main() {
     source /run/materium-env
     wait_for_master
     ensure_materium_source
-    printf '[materium-web] Starting Materium web from %s on 0.0.0.0:8099\n' "${MATERIUM_APP_DIR}"
+    printf '[materium-web] Starting Materium web from %s with config %s\n' "${MATERIUM_APP_DIR}" "${MATERIUM_CONFIG}"
     cd "${MATERIUM_APP_DIR}"
     if [[ "${MATERIUM_WEB_DEBUGPY:-}" == "1" ]]; then
         debug_port="${MATERIUM_WEB_DEBUGPY_PORT:-5678}"

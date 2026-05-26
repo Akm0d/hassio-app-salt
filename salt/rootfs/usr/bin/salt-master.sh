@@ -6,11 +6,9 @@ main() {
     /usr/bin/materium-init.sh
     # shellcheck disable=SC1091
     source /run/materium-env
-    printf '[salt-master] Starting salt-master on ports 4505/4506\n'
+    printf '[salt-master] Starting salt-master with config %s\n' "$(dirname "${MATERIUM_MASTER_CONFIG}")"
     exec salt-master \
         -c "$(dirname "${MATERIUM_MASTER_CONFIG}")" \
-        -l "${MATERIUM_LOG_LEVEL}" \
-        --log-file=/dev/stderr \
-        --log-file-level="${MATERIUM_LOG_LEVEL}"
+        --log-file=/dev/stderr
 }
 main "$@"
