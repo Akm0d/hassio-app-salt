@@ -1,6 +1,6 @@
 ---
 name: Salt
-version: "0.14.34"
+version: "0.14.35"
 slug: salt
 description: Run fully managed salt master and minion services with a UI to manage SLS files, states, and more.
 url: https://github.com/Akm0d/hassio-app-salt

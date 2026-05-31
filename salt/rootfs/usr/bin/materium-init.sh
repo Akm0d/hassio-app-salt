@@ -41,6 +41,7 @@ main() {
     MATERIUM_APP_DIR="${app_dir}" \
     UV_PROJECT_ENVIRONMENT="${uv_project_environment}" \
     UV_PYTHON_INSTALL_DIR_VALUE="${UV_PYTHON_INSTALL_DIR:-${DATA_DIR}/uv-python}" \
+    HOSTNAME_VALUE="$(hostname)" \
     python3 <<'PY'
 import json
 import os
@@ -71,7 +72,7 @@ master["ret_port"] = ret_port
 
 minion = dict(options["minion"])
 if minion.get("id") == "${HOSTNAME}":
-    minion["id"] = os.environ["HOSTNAME"]
+    minion["id"] = os.environ["HOSTNAME_VALUE"]
 
 master_config = pathlib.Path(master["root_dir"]) / "etc" / "salt" / "master"
 minion_config = pathlib.Path(minion["root_dir"]) / "etc" / "salt" / "minion"
@@ -111,6 +112,13 @@ env_path.chmod(env_path.stat().st_mode | stat.S_IRUSR | stat.S_IWUSR)
 PY
 
     log_info "App ready, releasing init lock and signaling readiness"
+    # shellcheck disable=SC1091
+    source /run/materium-env
+    log_info "Syncing Materium Python environment in ${UV_PROJECT_ENVIRONMENT}"
+    (
+        cd "${MATERIUM_APP_DIR}"
+        uv sync --frozen --extra test
+    )
     touch "${INIT_READY_FILE}"
 }
 

@@ -32,9 +32,9 @@ main() {
     if [[ "${MATERIUM_WEB_DEBUGPY:-}" == "1" ]]; then
         debug_port="${MATERIUM_WEB_DEBUGPY_PORT:-5678}"
         printf '[materium-web] Starting debugpy on 0.0.0.0:%s\n' "${debug_port}"
-        exec uv run --with=debugpy --extra test python -m debugpy --listen "0.0.0.0:${debug_port}" -m hub -c "${MATERIUM_CONFIG}" prima.init.web
+        exec uv run --no-sync --with=debugpy --extra test python -m debugpy --listen "0.0.0.0:${debug_port}" -m hub -c "${MATERIUM_CONFIG}" prima.init.web
     fi
-    exec uv run --extra test python -m hub -c "${MATERIUM_CONFIG}" prima.init.web
+    exec uv run --no-sync --extra test python -m hub -c "${MATERIUM_CONFIG}" prima.init.web
 }
 
 main "$@"
