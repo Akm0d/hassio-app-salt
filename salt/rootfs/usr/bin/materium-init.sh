@@ -7,11 +7,18 @@ readonly DATA_DIR="/data/materium"
 readonly SYNCED_APP_DIR="/srv/materium-dev/materium"
 readonly INIT_LOCK_DIR="/run/materium-init.lock"
 readonly INIT_READY_FILE="/run/materium-init.ready"
+readonly LOG_DIR="/srv/materium-dev/logs"
+readonly INIT_LOG="${LOG_DIR}/materium-init.log"
 
 log_info() {
     printf '[materium-init] %s\n' "$*"
 }
 
+setup_logging() {
+    mkdir -p "${LOG_DIR}"
+    touch "${INIT_LOG}"
+    exec > >(tee -a "${INIT_LOG}") 2>&1
+}
 
 acquire_init_lock() {
     while ! mkdir "${INIT_LOCK_DIR}" 2>/dev/null; do
@@ -24,6 +31,7 @@ acquire_init_lock() {
 main() {
     local app_dir="/opt/materium"
     local uv_project_environment="/opt/materium/.venv"
+    setup_logging
     log_info "Starting materium init"
 
     acquire_init_lock

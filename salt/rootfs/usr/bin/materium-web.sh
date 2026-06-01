@@ -3,6 +3,15 @@
 
 set -euo pipefail
 
+readonly LOG_DIR="/srv/materium-dev/logs"
+readonly WEB_LOG="${LOG_DIR}/materium-web.log"
+
+setup_logging() {
+    mkdir -p "${LOG_DIR}"
+    touch "${WEB_LOG}"
+    exec > >(tee -a "${WEB_LOG}") 2>&1
+}
+
 wait_for_master() {
     until bash -c ":</dev/tcp/127.0.0.1/${MATERIUM_MASTER_RET_PORT}" >/dev/null 2>&1; do
         printf '[materium-web] Waiting for salt-master before starting Materium web\n'
@@ -19,6 +28,7 @@ ensure_materium_source() {
 }
 
 main() {
+    setup_logging
     if [[ ! -f /run/materium-env ]]; then
         printf '[materium-web] Missing /run/materium-env; init-salt did not complete\n' >&2
         return 1

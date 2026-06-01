@@ -6,8 +6,14 @@ set -euo pipefail
 readonly RESTART_MARKER="/srv/materium-dev/restart"
 readonly RESTART_LOG="/srv/materium-dev/reloader.log"
 
+setup_logging() {
+    mkdir -p "$(dirname "${RESTART_LOG}")"
+    touch "${RESTART_LOG}"
+    exec > >(tee -a "${RESTART_LOG}") 2>&1
+}
+
 log_info() {
-    printf '[materium-dev-reloader] %s\n' "$*" | tee -a "${RESTART_LOG}"
+    printf '[materium-dev-reloader] %s\n' "$*"
 }
 
 restart_materium() {
@@ -17,9 +23,9 @@ restart_materium() {
 }
 
 main() {
+    setup_logging
     /usr/bin/materium-init.sh
     mkdir -p "$(dirname "${RESTART_MARKER}")"
-    touch "${RESTART_LOG}"
     log_info "Watching ${RESTART_MARKER}"
 
     while true; do
