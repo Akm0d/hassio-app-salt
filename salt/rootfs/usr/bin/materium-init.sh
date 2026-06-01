@@ -4,6 +4,7 @@
 set -euo pipefail
 
 readonly DATA_DIR="/data/materium"
+readonly CONFIG_DIR="/config/materium"
 readonly SYNCED_APP_DIR="/srv/materium-dev/materium"
 readonly INIT_LOCK_DIR="/run/materium-init.lock"
 readonly INIT_READY_FILE="/run/materium-init.ready"
@@ -59,6 +60,7 @@ import stat
 import yaml
 
 data_dir = pathlib.Path("/data/materium")
+config_dir = pathlib.Path("/config/materium")
 addon_config = pathlib.Path("/etc/materium-addon/config.yaml")
 options_path = pathlib.Path("/data/options.json")
 materium_config = data_dir / "materium.yaml"
@@ -75,10 +77,12 @@ materium["base_dir"] = str(data_dir)
 materium["port"] = ingress_port
 
 master = dict(options["master"])
+master["root_dir"] = str(config_dir / "salt" / "master")
 master["publish_port"] = publish_port
 master["ret_port"] = ret_port
 
 minion = dict(options["minion"])
+minion["root_dir"] = str(config_dir / "salt" / "minion")
 if minion.get("id") == "${HOSTNAME}":
     minion["id"] = os.environ["HOSTNAME_VALUE"]
 

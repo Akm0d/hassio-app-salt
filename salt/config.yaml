@@ -1,6 +1,6 @@
 ---
 name: Salt
-version: "0.14.35"
+version: "0.14.36"
 slug: salt
 description: Run fully managed salt master and minion services with a UI to manage SLS files, states, and more.
 url: https://github.com/Akm0d/hassio-app-salt
@@ -20,6 +20,9 @@ map:
   - type: share
     read_only: false
     path: /srv
+  - type: homeassistant_config
+    read_only: false
+    path: /config
 ports:
   4505/tcp: 4505
   4506/tcp: 4506
@@ -43,12 +46,10 @@ options:
   master:
     log_level: info
     auto_accept: false
-    root_dir: /data/salt/master
   minion:
     log_level: info
     master: localhost
     id: ${HOSTNAME}
-    root_dir: /data/salt/minion
 schema:
   materium:
     host: str
@@ -60,9 +61,7 @@ schema:
   master:
     log_level: list(trace|debug|info|notice|warning|error|fatal)
     auto_accept: bool
-    root_dir: str
   minion:
     log_level: list(trace|debug|info|notice|warning|error|fatal)
     master: str
     id: str
-    root_dir: str

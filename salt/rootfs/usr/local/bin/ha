@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# shellcheck shell=bash
+
+set -euo pipefail
+
+if [[ -z "${SUPERVISOR_API_TOKEN:-}" && -n "${SUPERVISOR_TOKEN:-}" ]]; then
+    export SUPERVISOR_API_TOKEN="${SUPERVISOR_TOKEN}"
+fi
+
+if [[ -z "${SUPERVISOR_ENDPOINT:-}" ]]; then
+    export SUPERVISOR_ENDPOINT="supervisor"
+fi
+
+exec /usr/local/bin/ha.real "$@"

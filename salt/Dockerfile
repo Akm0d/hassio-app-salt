@@ -10,6 +10,9 @@ COPY rootfs /
 COPY config.yaml /etc/materium-addon/config.yaml
 COPY --from=uv-bin /uv /uvx /usr/local/bin/
 
+ARG BUILD_ARCH
+ARG HA_CLI_VERSION=5.1.0
+
 RUN rm -rf \
     /etc/s6-overlay/s6-rc.d/api \
     /etc/s6-overlay/s6-rc.d/example1 \
@@ -60,10 +63,16 @@ RUN apk add --no-cache --upgrade \
     salt-minion \
     yq \
     zeromq-dev \
+ && case "${BUILD_ARCH}" in \
+        amd64) ha_arch="amd64" ;; \
+        aarch64) ha_arch="aarch64" ;; \
+        *) echo "Unsupported BUILD_ARCH for Home Assistant CLI: ${BUILD_ARCH}" >&2; exit 1 ;; \
+    esac \
+ && curl -L -f -o /usr/local/bin/ha.real "https://github.com/home-assistant/cli/releases/download/${HA_CLI_VERSION}/ha_${ha_arch}" \
+ && chmod +x /usr/local/bin/ha.real /usr/local/bin/ha \
  && mkdir -p /opt/materium
 
 # Build arguments
-ARG BUILD_ARCH
 ARG BUILD_DATE
 ARG BUILD_DESCRIPTION
 ARG BUILD_NAME
