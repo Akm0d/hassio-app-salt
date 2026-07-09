@@ -6,6 +6,3 @@ configuration:
   master:
     name: Salt master
     description: Settings for the embedded Salt master.
-  minion:
-    name: Salt minion
-    description: Settings for the embedded local Salt minion.

@@ -50,7 +50,6 @@ main() {
     MATERIUM_APP_DIR="${app_dir}" \
     UV_PROJECT_ENVIRONMENT="${uv_project_environment}" \
     UV_PYTHON_INSTALL_DIR_VALUE="${UV_PYTHON_INSTALL_DIR:-${DATA_DIR}/uv-python}" \
-    HOSTNAME_VALUE="$(hostname)" \
     python3 <<'PY'
 import json
 import os
@@ -81,24 +80,17 @@ master["root_dir"] = str(config_dir / "salt" / "master")
 master["publish_port"] = publish_port
 master["ret_port"] = ret_port
 
-minion = dict(options["minion"])
-minion["root_dir"] = str(config_dir / "salt" / "minion")
-if minion.get("id") == "${HOSTNAME}":
-    minion["id"] = os.environ["HOSTNAME_VALUE"]
-
 master_config = pathlib.Path(master["root_dir"]) / "etc" / "salt" / "master"
-minion_config = pathlib.Path(minion["root_dir"]) / "etc" / "salt" / "minion"
-for path in (materium_config, master_config, minion_config):
+for path in (materium_config, master_config):
     path.parent.mkdir(parents=True, exist_ok=True)
 
 materium_config.write_text(
     yaml.safe_dump(
-        {"materium": materium, "master": master, "minion": minion},
+        {"materium": materium, "master": master},
         sort_keys=False,
     ),
 )
 master_config.write_text(yaml.safe_dump(master, sort_keys=False))
-minion_config.write_text(yaml.safe_dump(minion, sort_keys=False))
 
 env_path = pathlib.Path("/run/materium-env")
 env_path.write_text(
@@ -107,7 +99,6 @@ env_path.write_text(
             f"export MATERIUM_APP_DIR={os.environ['MATERIUM_APP_DIR']}",
             f"export MATERIUM_CONFIG={materium_config}",
             f"export MATERIUM_MASTER_CONFIG={master_config}",
-            f"export MATERIUM_MINION_CONFIG={minion_config}",
             f"export MATERIUM_MASTER_PUBLISH_PORT={publish_port}",
             f"export MATERIUM_MASTER_RET_PORT={ret_port}",
             f"export UV_PROJECT_ENVIRONMENT={os.environ['UV_PROJECT_ENVIRONMENT']}",

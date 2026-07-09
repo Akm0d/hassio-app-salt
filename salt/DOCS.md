@@ -14,7 +14,7 @@ The Materium runtime replaces the old SaltGUI/salt-api design:
 - Home Assistant ingress serves `materium-web`.
 - Supervised services are:
   - `salt-master`
-  - `salt-minion`
+  - `materium-proxy-supervisor`
   - `materium-web`
   - `materium-worker`
   - `materium-dev-reloader`
@@ -35,19 +35,19 @@ Recommended add-on storage shape:
 
 ```yaml
 materium:
-  base_dir: /data/materium/salt
+  base_dir: /data/materium
   cache_db: /data/materium/cache.sqlite
 master:
+  root_dir: /config/materium/salt/master
   log_level: info
   auto_accept: false
-minion:
-  log_level: info
-  master: localhost
 ```
 
-The top-level `master` and `minion` sections describe Materium-managed embedded
-processes. The add-on exposes common settings in the Home Assistant options UI
-and writes the full Materium POP runtime config to `/data/materium/materium.yaml`.
+The top-level `master` section describes the Materium-managed embedded Salt
+master. Remote Salt minions and Home Assistant Docker proxy minions connect to
+that master; the add-on does not start a local Salt minion. The add-on exposes
+common settings in the Home Assistant options UI and writes the full Materium
+POP runtime config to `/data/materium/materium.yaml`.
 
 For live development on a real Home Assistant host, the add-on auto-detects
 synced Materium source at `/srv/materium-dev/materium`. When that path contains
@@ -58,17 +58,17 @@ source and uv keeps the development virtual environment under
 
 ## Persistent Storage Layout
 
-With `materium.base_dir: /data/materium/salt`, Materium-generated paths live under:
+With `materium.base_dir: /data/materium`, Materium-generated paths live under:
 
-- `/data/materium/salt/master`
-- `/data/materium/salt/minion`
+- `/data/materium`
+- `/config/materium/salt/master`
 - `/data/materium/cache.sqlite`
-- `/data/materium/salt/targets.yaml`
+- `/data/materium/targets.yaml`
 
 The Salt file and pillar roots are generated from the master layout:
 
-- `/data/materium/salt/master/srv/salt`
-- `/data/materium/salt/master/srv/pillar`
+- `/config/materium/salt/master/srv/salt`
+- `/config/materium/salt/master/srv/pillar`
 
 The add-on may map or symlink these to host-editable locations if needed, but
 Materium should remain the owner of the generated Salt configuration.
@@ -80,11 +80,10 @@ Materium exposes service status and restart hooks:
 ```text
 GET  /api/runtime/services
 POST /api/runtime/services/salt-master/restart
-POST /api/runtime/services/salt-minion/restart
 ```
 
 In the add-on, these endpoints should call the supervisor/s6 restart mechanism
-for the embedded `salt-master` and local `salt-minion` services.
+for the embedded `salt-master` service and Materium web services.
 
 Remote minion restart is intentionally outside this v1 runtime control surface.
 It can later be implemented as a normal Salt job.
@@ -99,6 +98,23 @@ Minions connect to the embedded Salt master on standard Salt transport ports:
 Materium reads keys, minions, grains, jobs, events, state functions, formulas,
 targets, SLS, and pillar through direct Salt APIs and cached read models.
 Views should render cached data first and refresh in the background.
+
+## Docker Proxy Minions
+
+The add-on enables Home Assistant `docker_api` access and runs
+`materium-proxy-supervisor`. That service discovers every visible Home Assistant
+container, including the Salt add-on container, and starts one `salt-proxy`
+process per container. Each proxy uses the exact Docker container name as the
+Salt minion id.
+
+Generated proxy config is stored under `/config/materium/salt/proxies`, so
+proxy keys and cache survive add-on restarts. The supervisor does not accept
+keys automatically; proxy keys appear in Materium as pending minions and should
+be accepted or rejected from the Minions UI.
+
+Home Assistant documents `docker_api` as read-only. The supervisor performs a
+startup Docker exec permission check and logs a clear warning if proxy minions
+can connect but Docker execution calls are likely to fail.
 
 ## Local Wrapper Testing
 
@@ -139,6 +155,6 @@ The local dev harness uses:
 - Salt publish/return ports: `4505` and `4506`
 - storage: `/home/akmod/code/.dev/hassio-app-salt`
 
-It builds the image and runs `salt-master`, `salt-minion`, `materium-web`,
-`materium-worker`, and `materium-dev-reloader` in the foreground so Docker's
-normal output is the debug surface.
+It builds the image and runs `salt-master`, `materium-web`, `materium-worker`,
+and `materium-dev-reloader` in the foreground so Docker's normal output is the
+debug surface.

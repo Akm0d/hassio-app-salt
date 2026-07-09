@@ -17,7 +17,8 @@ main() {
     # shellcheck disable=SC1091
     source /run/materium-env
     printf '[salt-master] Starting salt-master with config %s\n' "$(dirname "${MATERIUM_MASTER_CONFIG}")"
-    exec salt-master \
+    cd "${MATERIUM_APP_DIR}"
+    exec uv run --no-sync --extra test salt-master \
         -c "$(dirname "${MATERIUM_MASTER_CONFIG}")" \
         --log-file=/dev/stderr
 }

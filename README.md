@@ -7,11 +7,12 @@ The target add-on runtime is Materium-first:
 
 - no SaltGUI
 - no `salt-api`
-- direct Salt master/minion management through Materium
+- direct Salt master and proxy-minion management through Materium
 - Home Assistant ingress for `materium-web`
-- supervised `salt-master`, local `salt-minion`, `materium-web`, and
+- supervised `salt-master`, Docker proxy supervisor, `materium-web`, and
   `materium-worker` services, plus a dev-only restart marker watcher
 - persistent Salt and Materium storage under `/data`
+- dynamic Docker proxy minions for every visible Home Assistant container
 
 Materium itself lives in the
 [`Akm0d/materium`](https://github.com/Akm0d/materium) application repository.
@@ -32,7 +33,7 @@ Assistant storage before starting the add-on:
 /home/akmod/code/sync-materium-to-ha.sh
 ```
 
-The script syncs to `root@hearth.lan:/share/materium-dev/materium` and touches
+The script syncs to `akmod@hearth:/share/materium-dev/materium` and touches
 `/share/materium-dev/restart`. The add-on sees that source as
 `/srv/materium-dev/materium` and runs from it automatically when
 `pyproject.toml` is present. The add-on watches the restart marker and restarts

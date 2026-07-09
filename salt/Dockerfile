@@ -54,13 +54,13 @@ RUN apk add --no-cache --upgrade \
     clang \
     compiler-rt \
     curl \
+    docker-cli \
     git \
     jq \
     libffi-dev \
     python3 \
     rust \
     salt-master \
-    salt-minion \
     yq \
     zeromq-dev \
  && case "${BUILD_ARCH}" in \
