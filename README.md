@@ -1,6 +1,19 @@
 # Home Assistant Add-on: Salt
 
-This repository is the Home Assistant add-on wrapper for Materium, the Salt UI
+This repository is being reset around a Home Assistant-first Salt runtime.
+The new target is a persistent Salt master in the add-on, a small key/minion
+management UI, and a normal Home Assistant integration that exposes Salt minions
+and grains as native devices and entities.
+
+The old Materium/POP direction is preserved at tag
+`pre-ha-first-rethink-2026-07-09`.
+
+See [the Home Assistant-first plan](./docs/home-assistant-first-salt-plan.md)
+for the new implementation contract.
+
+## Previous direction
+
+This repository was the Home Assistant add-on wrapper for Materium, the Salt UI
 and service layer.
 
 The target add-on runtime is Materium-first:
