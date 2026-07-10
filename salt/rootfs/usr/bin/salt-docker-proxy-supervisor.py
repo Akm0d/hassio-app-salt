@@ -61,6 +61,7 @@ class ProxySupervisor:
             "pki_dir": str(root / "pki"),
             "sock_dir": str(root / "sock"),
             "file_client": "local",
+            "extension_modules": "/usr/lib/salt_ha/extmods",
             "mine_enabled": False,
             "proxy_keep_alive": False,
             "log_level": "info",

@@ -52,6 +52,36 @@ async def refresh_grains(_request: web.Request) -> web.Response:
     return json_response(await runtime.refresh_grains())
 
 
+async def prefixed_api_or_index(request: web.Request) -> web.Response:
+    """Handle Home Assistant app/ingress paths that preserve a URL prefix."""
+    tail = request.match_info["tail"].lstrip("/")
+    parts = tail.split("/")
+    try:
+        api_index = len(parts) - 1 - list(reversed(parts)).index("api")
+    except ValueError:
+        return await index(request)
+
+    api_parts = parts[api_index + 1 :]
+    if request.method == "GET" and api_parts == ["health"]:
+        return await health(request)
+    if request.method == "GET" and api_parts == ["keys"]:
+        return await keys(request)
+    if request.method == "POST" and len(api_parts) == 2 and api_parts[0] == "keys":
+        action = api_parts[1]
+        if action not in {"accept", "reject", "delete"}:
+            return json_response({"error": "unsupported action"}, status=404)
+        payload = await request.json()
+        ids = [str(item) for item in payload.get("ids", []) if str(item)]
+        return json_response({"results": await runtime.manage_keys(action, ids)})
+    if request.method == "GET" and api_parts == ["minions"]:
+        return await minions(request)
+    if request.method == "GET" and api_parts == ["minions", "grains"]:
+        return await minion_grains(request)
+    if request.method == "POST" and api_parts == ["minions", "refresh-grains"]:
+        return await refresh_grains(request)
+    return json_response({"error": "not found"}, status=404)
+
+
 async def index(_request: web.Request) -> web.Response:
     """Serve the minimal ingress UI."""
     return web.Response(
@@ -103,8 +133,10 @@ async def index(_request: web.Request) -> web.Response:
 </main>
 <script>
 async function api(path, options = {}) {
-  const base = new URL('.', window.location.href);
-  const target = new URL(String(path).replace(/^\\/+/, ''), base);
+  const route = String(path).replace(/^\\/+/, '');
+  const page = window.location.pathname.replace(/\\/+$/, '');
+  const basePath = page.endsWith('/salt') ? page.slice(0, -5) : page;
+  const target = `${window.location.origin}${basePath}/${route}${window.location.search}`;
   const response = await fetch(target, {
     headers: {'content-type': 'application/json'},
     ...options,
@@ -172,7 +204,7 @@ def create_app() -> web.Application:
     app.router.add_get("/api/minions", minions)
     app.router.add_get("/api/minions/grains", minion_grains)
     app.router.add_post("/api/minions/refresh-grains", refresh_grains)
-    app.router.add_get("/{tail:.*}", index)
+    app.router.add_route("*", "/{tail:.*}", prefixed_api_or_index)
     return app
 
 
