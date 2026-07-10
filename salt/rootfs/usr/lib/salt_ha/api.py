@@ -116,6 +116,7 @@ async def index(_request: web.Request) -> web.Response:
     <h1>Salt</h1>
     <div class="actions">
       <button type="button" onclick="refreshGrains()">Refresh Grains</button>
+      <button id="accept-all" type="button" onclick="acceptAll()" disabled>Accept All</button>
       <button type="button" onclick="load()">Reload</button>
     </div>
   </header>
@@ -132,6 +133,8 @@ async def index(_request: web.Request) -> web.Response:
   </table>
 </main>
 <script>
+let pendingKeyIds = [];
+
 async function api(path, options = {}) {
   const route = String(path).replace(/^\\/+/, '');
   const page = window.location.pathname.replace(/\\/+$/, '');
@@ -157,8 +160,15 @@ async function keyAction(action, id) {
   await api(`/api/keys/${action}`, {method: 'POST', body: JSON.stringify({ids: [id]})});
   await load();
 }
+async function acceptAll() {
+  if (!pendingKeyIds.length) return;
+  await api('/api/keys/accept', {method: 'POST', body: JSON.stringify({ids: pendingKeyIds})});
+  await load();
+}
 async function refreshGrains() {
-  await api('/api/minions/refresh-grains', {method: 'POST'});
+  const result = await api('/api/minions/refresh-grains', {method: 'POST'});
+  const failures = Object.keys(result.errors || {}).length;
+  document.getElementById('health').textContent = `Refreshed ${result.updated?.length || 0} minion grains${failures ? `, ${failures} failed` : ''} - ${result.last_refresh || ''}`;
   await load();
 }
 async function load() {
@@ -170,6 +180,8 @@ async function load() {
     ]);
     document.getElementById('health').textContent = `${health.salt || 'Salt'} - ${health.time}`;
     const keyRows = [];
+    pendingKeyIds = keys.data.pending || [];
+    document.getElementById('accept-all').disabled = pendingKeyIds.length === 0;
     for (const [status, ids] of Object.entries(keys.data)) {
       for (const id of ids) keyRows.push(`<tr><td><span class="pill">${esc(status)}</span></td><td><code>${esc(id)}</code></td><td>${keyActions(status, id)}</td></tr>`);
     }

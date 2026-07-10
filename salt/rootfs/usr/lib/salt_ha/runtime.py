@@ -158,24 +158,95 @@ def save_grains_cache(cache: dict[str, dict[str, Any]]) -> None:
     write_json(GRAINS_CACHE, cache)
 
 
-def refresh_grains_sync(timeout: int = 20) -> dict[str, Any]:
-    """Poll accepted minions for grains and persist successful responses."""
-    import salt.client
+def proxy_config(minion_id: str) -> dict[str, Any]:
+    """Load a persisted proxy minion config."""
+    config_path = PROXY_ROOT / minion_id / "etc" / "salt" / "proxy"
+    try:
+        return yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+    except FileNotFoundError:
+        return {}
 
-    client = salt.client.LocalClient(c_path=str(master_config_dir()))
-    responses = client.cmd("*", "grains.items", timeout=timeout)
+
+def docker_grains(container_name: str) -> dict[str, Any]:
+    """Return Docker metadata as grains for one container proxy."""
+    import docker
+
+    client = docker.from_env(timeout=15)
+    try:
+        container = client.containers.get(container_name)
+        container.reload()
+        attrs = container.attrs or {}
+    finally:
+        client.close()
+
+    config = attrs.get("Config") or {}
+    state = attrs.get("State") or {}
+    network_settings = attrs.get("NetworkSettings") or {}
+    host_config = attrs.get("HostConfig") or {}
+    labels = config.get("Labels") or {}
+    networks = network_settings.get("Networks") or {}
+    name = (attrs.get("Name") or "").lstrip("/") or container_name
+
+    return {
+        "kernel": "Linux",
+        "os": "Docker",
+        "os_family": "Docker",
+        "virtual": "container",
+        "virtual_subtype": "Docker",
+        "id": container_name,
+        "host": name,
+        "fqdn": name,
+        "docker": {
+            "id": attrs.get("Id"),
+            "name": name,
+            "image": config.get("Image") or "",
+            "status": state.get("Status"),
+            "running": bool(state.get("Running")),
+            "created": attrs.get("Created"),
+            "restart_policy": host_config.get("RestartPolicy"),
+            "labels": labels,
+            "networks": sorted(networks),
+            "ports": network_settings.get("Ports") or {},
+        },
+    }
+
+
+def refresh_grains_sync(timeout: int = 20) -> dict[str, Any]:
+    """Refresh cached grains for accepted Docker proxy minions."""
+    accepted = list_keys_sync().get("accepted", [])
     now = utc_now()
     cache = load_grains_cache()
-    for minion_id, grains in responses.items():
-        if isinstance(grains, dict):
-            cache[str(minion_id)] = {
-                "id": str(minion_id),
-                "grains": grains,
-                "last_refresh": now,
-                "last_seen": now,
-            }
+    updated: list[str] = []
+    skipped: list[str] = []
+    errors: dict[str, str] = {}
+
+    for minion_id in accepted:
+        config = proxy_config(minion_id)
+        proxy = config.get("proxy") if isinstance(config, dict) else {}
+        if not isinstance(proxy, dict) or proxy.get("proxytype") != "docker":
+            skipped.append(minion_id)
+            continue
+        container_name = str(proxy.get("name") or minion_id)
+        try:
+            grains = docker_grains(container_name)
+        except Exception as exc:
+            errors[minion_id] = str(exc)
+            continue
+        cache[minion_id] = {
+            "id": minion_id,
+            "grains": grains,
+            "last_refresh": now,
+            "last_seen": now,
+        }
+        updated.append(minion_id)
+
     save_grains_cache(cache)
-    return {"updated": sorted(str(key) for key in responses), "last_refresh": now}
+    return {
+        "updated": sorted(updated),
+        "skipped": sorted(skipped),
+        "errors": errors,
+        "last_refresh": now,
+    }
 
 
 async def refresh_grains(timeout: int = 20) -> dict[str, Any]:
