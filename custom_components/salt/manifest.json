@@ -1,6 +1,7 @@
 {
   "domain": "salt",
   "name": "Salt",
+  "version": "0.15.0",
   "codeowners": ["@Akm0d"],
   "config_flow": true,
   "documentation": "https://github.com/Akm0d/hassio-app-salt",
