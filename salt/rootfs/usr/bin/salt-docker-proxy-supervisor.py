@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Supervise one Salt Docker proxy minion process per HA Docker container."""
+"""Supervise one Salt Docker proxy minion process per visible HA container."""
 
 from __future__ import annotations
 
@@ -9,15 +9,14 @@ import pathlib
 import re
 import signal
 import subprocess
-import sys
 import time
 
 import docker
 import yaml
 
 
-LOG_DIR = pathlib.Path("/srv/materium-dev/logs")
-PROXY_STATE_ROOT = pathlib.Path("/config/materium/salt/proxies")
+LOG_DIR = pathlib.Path("/srv/salt-ha/logs")
+PROXY_STATE_ROOT = pathlib.Path(os.environ.get("SALT_HA_PROXY_ROOT", "/config/salt/proxies"))
 RECONCILE_INTERVAL = 10
 MAX_NEW_PROXIES_PER_RECONCILE = 4
 
@@ -26,17 +25,17 @@ class ProxySupervisor:
     """Maintain Docker-backed salt-proxy processes for discovered containers."""
 
     def __init__(self) -> None:
-        self.app_dir = pathlib.Path(os.environ["MATERIUM_APP_DIR"])
-        self.master_port = int(os.environ.get("MATERIUM_MASTER_RET_PORT", "4506"))
+        self.master_port = int(os.environ.get("SALT_HA_MASTER_RET_PORT", "4506"))
+        self.include_stopped = os.environ.get("SALT_HA_DOCKER_PROXY_INCLUDE_STOPPED", "1") == "1"
         self.processes: dict[str, subprocess.Popen] = {}
         self.running = True
-        self.client = docker.from_env(timeout=15)
+        self.client = None
         LOG_DIR.mkdir(parents=True, exist_ok=True)
         PROXY_STATE_ROOT.mkdir(parents=True, exist_ok=True)
 
     def log(self, message: str) -> None:
-        """Write one timestamped supervisor log line."""
-        print(f"[materium-proxy-supervisor] {message}", flush=True)
+        """Write one supervisor log line."""
+        print(f"[salt-docker-proxy-supervisor] {message}", flush=True)
 
     def proxy_path_name(self, container_name: str) -> str:
         """Return a filesystem-safe name for a proxy configuration directory."""
@@ -81,7 +80,7 @@ class ProxySupervisor:
         return proc is not None and proc.poll() is None
 
     def stop_existing_managed_proxy_processes(self) -> None:
-        """Terminate older proxy processes that use this supervisor's config root."""
+        """Terminate older proxy processes using this supervisor's config root."""
         managed_root = str(PROXY_STATE_ROOT)
         current_pid = os.getpid()
         for proc_dir in pathlib.Path("/proc").iterdir():
@@ -90,9 +89,8 @@ class ProxySupervisor:
             pid = int(proc_dir.name)
             if pid == current_pid:
                 continue
-            cmdline_path = proc_dir / "cmdline"
             try:
-                cmdline = cmdline_path.read_bytes().replace(b"\x00", b" ").decode()
+                cmdline = (proc_dir / "cmdline").read_bytes().replace(b"\x00", b" ").decode()
             except OSError:
                 continue
             if "salt-proxy" not in cmdline or managed_root not in cmdline:
@@ -103,32 +101,10 @@ class ProxySupervisor:
             except ProcessLookupError:
                 continue
         time.sleep(2)
-        for proc_dir in pathlib.Path("/proc").iterdir():
-            if not proc_dir.name.isdigit():
-                continue
-            pid = int(proc_dir.name)
-            if pid == current_pid:
-                continue
-            cmdline_path = proc_dir / "cmdline"
-            try:
-                cmdline = cmdline_path.read_bytes().replace(b"\x00", b" ").decode()
-            except OSError:
-                continue
-            if "salt-proxy" not in cmdline or managed_root not in cmdline:
-                continue
-            try:
-                os.kill(pid, signal.SIGKILL)
-            except ProcessLookupError:
-                continue
 
     def proxy_command(self, container_name: str) -> list[str]:
         """Build the salt-proxy command for one proxy id."""
         return [
-            "uv",
-            "run",
-            "--no-sync",
-            "--extra",
-            "test",
             "salt-proxy",
             "-c",
             str(self.config_dir(container_name)),
@@ -148,7 +124,6 @@ class ProxySupervisor:
         output = proxy_log.open("ab")
         proc = subprocess.Popen(
             self.proxy_command(container_name),
-            cwd=str(self.app_dir),
             env=os.environ.copy(),
             stdout=output,
             stderr=subprocess.STDOUT,
@@ -176,16 +151,24 @@ class ProxySupervisor:
             self.stop_proxy(name)
 
     def request_stop(self, signum: int, _frame: object) -> None:
-        """Ask the reconciliation loop to stop after receiving a process signal."""
+        """Ask the reconciliation loop to stop."""
         self.log(f"received signal {signum}; stopping proxy supervisor")
         self.running = False
 
     def container_names(self) -> set[str]:
         """Return all visible Docker container names."""
-        return {container.name for container in self.client.containers.list(all=True) if container.name}
+        if self.client is None:
+            return set()
+        return {
+            container.name
+            for container in self.client.containers.list(all=self.include_stopped)
+            if container.name
+        }
 
     def validate_docker_access(self) -> None:
         """Check that Docker is reachable and report likely permission limits."""
+        if self.client is None:
+            self.client = docker.from_env(timeout=15)
         version = self.client.version()
         self.log(f"connected to Docker {version.get('Version', 'unknown')}")
         containers = self.client.containers.list(all=True)
@@ -195,10 +178,10 @@ class ProxySupervisor:
         sample = containers[0]
         try:
             self.client.api.exec_create(sample.id, ["true"])
-        except Exception as exc:  # noqa: BLE001 - startup diagnostic must log raw Docker permission failures.
+        except Exception as exc:
             self.log(
                 "Docker exec permission check failed; Docker proxy minions will connect, "
-                f"but docker.call/state execution may fail: {exc}"
+                f"but docker execution calls may fail: {exc}",
             )
         else:
             self.log("Docker exec permission check passed")
@@ -211,24 +194,35 @@ class ProxySupervisor:
         started = 0
         for name in sorted(names):
             current = self.processes.get(name)
-            if not self.process_is_running(current) and started >= MAX_NEW_PROXIES_PER_RECONCILE:
+            was_running = self.process_is_running(current)
+            if not was_running and started >= MAX_NEW_PROXIES_PER_RECONCILE:
                 continue
             self.start_proxy(name)
-            if not self.process_is_running(current):
+            if not was_running:
                 started += 1
 
     def run(self) -> int:
         """Run the Docker event loop with periodic reconciliation."""
+        if os.environ.get("SALT_HA_DOCKER_PROXY_ENABLED", "1") != "1":
+            self.log("Docker proxy supervisor disabled by add-on options")
+            while self.running:
+                time.sleep(RECONCILE_INTERVAL)
+            return 0
+
         signal.signal(signal.SIGTERM, self.request_stop)
         signal.signal(signal.SIGINT, self.request_stop)
         self.stop_existing_managed_proxy_processes()
-        try:
-            self.validate_docker_access()
-        except Exception as exc:  # noqa: BLE001 - Docker connection diagnostics should keep the supervisor alive.
-            self.log(f"Docker API unavailable: {exc}")
         since = int(time.time())
         while self.running:
             try:
+                if self.client is None:
+                    try:
+                        self.validate_docker_access()
+                    except Exception as exc:
+                        self.client = None
+                        self.log(f"Docker API unavailable: {exc}")
+                        time.sleep(RECONCILE_INTERVAL)
+                        continue
                 self.reconcile()
                 until = int(time.time() + RECONCILE_INTERVAL)
                 for event in self.client.events(
@@ -238,13 +232,13 @@ class ProxySupervisor:
                     until=until,
                 ):
                     since = max(since, int(event.get("time", since)))
-                    action = str(event.get("Action", ""))
-                    if action in {"create", "start", "die", "destroy", "rename"}:
+                    if str(event.get("Action", "")) in {"create", "start", "die", "destroy", "rename"}:
                         self.reconcile()
                 since = int(time.time())
             except KeyboardInterrupt:
                 break
-            except Exception as exc:  # noqa: BLE001 - supervisor should report Docker/Salt failures and retry.
+            except Exception as exc:
+                self.client = None
                 self.log(f"supervisor loop error: {exc}")
                 time.sleep(RECONCILE_INTERVAL)
         self.stop_all_proxies()
@@ -255,15 +249,9 @@ def main() -> int:
     """Start the proxy supervisor from environment-provided runtime config."""
     try:
         return ProxySupervisor().run()
-    except Exception as exc:  # noqa: BLE001 - top-level startup should print a direct operational error.
+    except Exception as exc:
         print(
-            json.dumps(
-                {
-                    "error": str(exc),
-                    "hint": "Docker proxy supervisor could not start; check add-on Docker API permissions.",
-                },
-            ),
-            file=sys.stderr,
+            json.dumps({"service": "salt-docker-proxy-supervisor", "error": str(exc)}),
             flush=True,
         )
         return 1

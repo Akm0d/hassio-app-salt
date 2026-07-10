@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
+
 set -euo pipefail
 
-readonly LOG_DIR="/srv/materium-dev/logs"
+readonly LOG_DIR="/srv/salt-ha/logs"
 readonly MASTER_LOG="${LOG_DIR}/salt-master.log"
 
 setup_logging() {
@@ -13,13 +14,12 @@ setup_logging() {
 
 main() {
     setup_logging
-    /usr/bin/materium-init.sh
+    /usr/bin/salt-ha-init.sh
     # shellcheck disable=SC1091
-    source /run/materium-env
-    printf '[salt-master] Starting salt-master with config %s\n' "$(dirname "${MATERIUM_MASTER_CONFIG}")"
-    cd "${MATERIUM_APP_DIR}"
-    exec uv run --no-sync --extra test salt-master \
-        -c "$(dirname "${MATERIUM_MASTER_CONFIG}")" \
+    source /run/salt-ha-env
+    printf '[salt-master] Starting salt-master with config %s\n' "${SALT_HA_MASTER_CONFIG_DIR}"
+    exec salt-master \
+        -c "${SALT_HA_MASTER_CONFIG_DIR}" \
         --log-file=/dev/stderr
 }
 main "$@"

@@ -1,0 +1,10 @@
+{
+  "domain": "salt",
+  "name": "Salt",
+  "codeowners": ["@Akm0d"],
+  "config_flow": true,
+  "documentation": "https://github.com/Akm0d/hassio-app-salt",
+  "integration_type": "hub",
+  "iot_class": "local_polling",
+  "requirements": []
+}

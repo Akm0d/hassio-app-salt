@@ -1,160 +1,84 @@
 # Home Assistant Add-on: Salt
 
-This add-on is the Home Assistant wrapper for Materium. Materium is the Salt
-application; this repository supplies the add-on packaging, ingress, service
-supervision, and persistent storage layout.
+This add-on runs a persistent Salt master for Home Assistant and exposes a
+small key/minion management UI through ingress.
 
-## Runtime Direction
+## Runtime
 
-The Materium runtime replaces the old SaltGUI/salt-api design:
+The add-on starts three services:
 
-- Materium manages Salt directly with Salt's Python APIs.
-- No `salt-api` process is required.
-- No SaltGUI ingress proxy is required.
-- Home Assistant ingress serves `materium-web`.
-- Supervised services are:
-  - `salt-master`
-  - `materium-proxy-supervisor`
-  - `materium-web`
-  - `materium-worker`
-  - `materium-dev-reloader`
+- `salt-master`
+- `salt-ha-api`
+- `salt-docker-proxy-supervisor`
 
-The add-on runtime no longer starts SaltGUI, `salt-api`, or an ingress proxy.
+`salt-master` is the real Salt master. LAN minions connect to the add-on host on
+ports `4505/tcp` and `4506/tcp`.
 
-## Configuration Model
+`salt-ha-api` serves both the ingress UI and a small JSON API for the Home
+Assistant integration:
 
-The committed Materium config in the application repository is a template. The
-Home Assistant add-on should generate a runtime Materium config with the same
-shape.
+- `GET /api/health`
+- `GET /api/keys`
+- `POST /api/keys/accept`
+- `POST /api/keys/reject`
+- `POST /api/keys/delete`
+- `GET /api/minions`
+- `GET /api/minions/grains`
+- `POST /api/minions/refresh-grains`
 
-The important option is `materium.base_dir`. Materium rewrites managed Salt
-paths under that directory so the add-on can keep runtime data in persistent
-Home Assistant storage.
+`salt-docker-proxy-supervisor` discovers visible Home Assistant Docker
+containers and starts one Salt proxy minion per container. Proxy keys are not
+auto-accepted unless `master.auto_accept` is enabled.
 
-Recommended add-on storage shape:
+## Persistent Storage
 
-```yaml
-materium:
-  base_dir: /data/materium
-  cache_db: /data/materium/cache.sqlite
-master:
-  root_dir: /config/materium/salt/master
-  log_level: info
-  auto_accept: false
-```
-
-The top-level `master` section describes the Materium-managed embedded Salt
-master. Remote Salt minions and Home Assistant Docker proxy minions connect to
-that master; the add-on does not start a local Salt minion. The add-on exposes
-common settings in the Home Assistant options UI and writes the full Materium
-POP runtime config to `/data/materium/materium.yaml`.
-
-For live development on a real Home Assistant host, the add-on auto-detects
-synced Materium source at `/srv/materium-dev/materium`. When that path contains
-`pyproject.toml`, `materium-web` and `materium-worker` run from the synced
-source and uv keeps the development virtual environment under
-`/data/materium/dev-venv`. Otherwise the add-on runs the packaged path
-`/opt/materium`.
-
-## Persistent Storage Layout
-
-With `materium.base_dir: /data/materium`, Materium-generated paths live under:
-
-- `/data/materium`
-- `/config/materium/salt/master`
-- `/data/materium/cache.sqlite`
-- `/data/materium/targets.yaml`
-
-The Salt file and pillar roots are generated from the master layout:
-
-- `/config/materium/salt/master/srv/salt`
-- `/config/materium/salt/master/srv/pillar`
-
-The add-on may map or symlink these to host-editable locations if needed, but
-Materium should remain the owner of the generated Salt configuration.
-
-## Service Controls
-
-Materium exposes service status and restart hooks:
+Salt state is stored in Home Assistant config storage:
 
 ```text
-GET  /api/runtime/services
-POST /api/runtime/services/salt-master/restart
+/config/salt/master/etc/salt/master
+/config/salt/master/pki
+/config/salt/master/cache
+/config/salt/master/sock
+/config/salt/master/srv/salt
+/config/salt/master/srv/pillar
+/config/salt/proxies/<proxy-id>
 ```
 
-In the add-on, these endpoints should call the supervisor/s6 restart mechanism
-for the embedded `salt-master` service and Materium web services.
+The API stores cached grain responses in:
 
-Remote minion restart is intentionally outside this v1 runtime control surface.
-It can later be implemented as a normal Salt job.
-
-## Salt Access
-
-Minions connect to the embedded Salt master on standard Salt transport ports:
-
-- `4505/tcp`: Salt publish port
-- `4506/tcp`: Salt return port
-
-Materium reads keys, minions, grains, jobs, events, state functions, formulas,
-targets, SLS, and pillar through direct Salt APIs and cached read models.
-Views should render cached data first and refresh in the background.
-
-## Docker Proxy Minions
-
-The add-on enables Home Assistant `docker_api` access and runs
-`materium-proxy-supervisor`. That service discovers every visible Home Assistant
-container, including the Salt add-on container, and starts one `salt-proxy`
-process per container. Each proxy uses the exact Docker container name as the
-Salt minion id.
-
-Generated proxy config is stored under `/config/materium/salt/proxies`, so
-proxy keys and cache survive add-on restarts. The supervisor does not accept
-keys automatically; proxy keys appear in Materium as pending minions and should
-be accepted or rejected from the Minions UI.
-
-Home Assistant documents `docker_api` as read-only. The supervisor performs a
-startup Docker exec permission check and logs a clear warning if proxy minions
-can connect but Docker execution calls are likely to fail.
-
-## Local Wrapper Testing
-
-Use the Materium repository for Python development and the end-to-end Salt
-integration tests:
-
-```bash
-cd materium
-uv sync --extra test
-uv run pytest
+```text
+/data/salt-ha-api/grains.json
 ```
 
-For live Home Assistant development, install this repository as an add-on
-repository, then sync source from the shared workspace. The image does not clone
-the private Materium repository during build.
+The add-on rewrites generated config on startup, but it does not delete Salt
+PKI, accepted keys, rejected keys, denied keys, or proxy minion state.
 
-```bash
-/home/akmod/code/sync-materium-to-ha.sh
+## Options
+
+```yaml
+ui:
+  host: 0.0.0.0
+  port: 8099
+docker_proxy:
+  enabled: true
+  include_stopped: true
+master:
+  log_level: info
+  auto_accept: false
+  worker_threads: 50
+  publish_port: 4505
+  ret_port: 4506
 ```
 
-From `/home/akmod/code`, the VS Code task `HA: sync + restart Materium` performs
-the same sync and touches `/share/materium-dev/restart`. The add-on's
-`materium-dev-reloader` service watches the matching container path and restarts
-only `materium-web` and `materium-worker`.
+`ui.port` should normally match the committed ingress port. The Salt ports
+should normally stay at the standard `4505` and `4506` values.
 
-Use this add-on repository for Home Assistant packaging and container smoke
-tests. From the shared `/home/akmod/code` workspace, press the VS Code launch
-entry `hassio-app-salt: docker compose up`, or run:
+## Home Assistant Integration
 
-```bash
-docker compose up --build --remove-orphans
-```
+The matching custom integration lives in `custom_components/salt`. It polls the
+add-on API, creates one Home Assistant device for each accepted minion, and
+exposes selected grains as entities.
 
-The local dev harness uses:
-
-- container name: `materium-addon-dev`
-- Materium web: `http://127.0.0.1:8099/`
-- Salt publish/return ports: `4505` and `4506`
-- storage: `/home/akmod/code/.dev/hassio-app-salt`
-
-It builds the image and runs `salt-master`, `materium-web`, `materium-worker`,
-and `materium-dev-reloader` in the foreground so Docker's normal output is the
-debug surface.
+Reload the integration after accepting new keys to force device/entity
+rediscovery immediately. Normal polling will keep grain values refreshed after
+that.

@@ -1,8 +1,8 @@
 ---
 name: Salt
-version: "0.14.37"
+version: "0.15.0"
 slug: salt
-description: Run a fully managed Salt master with a UI to manage minions, SLS files, states, and more.
+description: Run a persistent Salt master and expose Salt minions to Home Assistant.
 url: https://github.com/Akm0d/hassio-app-salt
 startup: services
 boot: auto
@@ -32,32 +32,28 @@ ports_description:
   4505/tcp: Salt publish port
   4506/tcp: Salt return port
 options:
-  materium:
+  ui:
     host: 0.0.0.0
-    cache_db: /data/materium/cache.sqlite
-    formula_repositories:
-      - name: Official
-        url: https://github.com/saltstack-formulas
-        plugin: github
-      - name: Community
-        url: https://github.com/salt-formulas
-        plugin: github
-      - name: Openstack
-        url: https://github.com/openstack-archive
-        plugin: github
+    port: 8099
+  docker_proxy:
+    enabled: true
+    include_stopped: true
   master:
     log_level: info
     auto_accept: false
     worker_threads: 50
+    publish_port: 4505
+    ret_port: 4506
 schema:
-  materium:
+  ui:
     host: str
-    cache_db: str
-    formula_repositories:
-      - name: str
-        url: str
-        plugin: str
+    port: int
+  docker_proxy:
+    enabled: bool
+    include_stopped: bool
   master:
     log_level: list(trace|debug|info|notice|warning|error|fatal)
     auto_accept: bool
     worker_threads: int
+    publish_port: port
+    ret_port: port

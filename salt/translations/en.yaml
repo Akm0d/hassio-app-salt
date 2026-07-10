@@ -1,8 +1,10 @@
----
 configuration:
-  materium:
-    name: Materium
-    description: Materium web and storage settings.
+  ui:
+    name: UI
+    description: Ingress API and key management UI settings.
+  docker_proxy:
+    name: Docker proxy minions
+    description: Create Salt proxy minions for visible Home Assistant containers.
   master:
     name: Salt master
-    description: Settings for the embedded Salt master.
+    description: Salt master runtime settings.

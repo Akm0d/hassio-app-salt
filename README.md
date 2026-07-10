@@ -1,66 +1,37 @@
 # Home Assistant Add-on: Salt
 
 This repository is being reset around a Home Assistant-first Salt runtime.
-The new target is a persistent Salt master in the add-on, a small key/minion
-management UI, and a normal Home Assistant integration that exposes Salt minions
-and grains as native devices and entities.
+
+The add-on runs a persistent Salt master, a minimal ingress UI for key/minion
+management, and Docker proxy minions for visible Home Assistant containers. The
+repository also ships a normal Home Assistant custom integration under
+`custom_components/salt` so accepted Salt minions can show up as native devices
+with grain entities.
 
 The old Materium/POP direction is preserved at tag
 `pre-ha-first-rethink-2026-07-09`.
 
 See [the Home Assistant-first plan](./docs/home-assistant-first-salt-plan.md)
-for the new implementation contract.
+for the implementation contract.
 
-## Previous direction
+## Runtime
 
-This repository was the Home Assistant add-on wrapper for Materium, the Salt UI
-and service layer.
+- `salt-master`
+- `salt-ha-api`
+- `salt-docker-proxy-supervisor`
 
-The target add-on runtime is Materium-first:
+Salt master config, PKI, caches, and proxy state persist under `/config/salt`.
+The API caches grain responses under `/data/salt-ha-api`.
 
-- no SaltGUI
-- no `salt-api`
-- direct Salt master and proxy-minion management through Materium
-- Home Assistant ingress for `materium-web`
-- supervised `salt-master`, Docker proxy supervisor, `materium-web`, and
-  `materium-worker` services, plus a dev-only restart marker watcher
-- persistent Salt and Materium storage under `/data`
-- dynamic Docker proxy minions for every visible Home Assistant container
+## Development
 
-Materium itself lives in the
-[`Akm0d/materium`](https://github.com/Akm0d/materium) application repository.
-This add-on repository owns packaging, ingress, service supervision, and
-Home Assistant docs/config.
+Install this repository as a Home Assistant add-on repository, install the Salt
+add-on, and start it. The add-on image installs Salt from Python packages pinned
+to the 3008 line.
 
-See [the add-on documentation](./salt/DOCS.md) for the runtime layout and
-configuration model.
-
-## Home Assistant development loop
-
-Install this repository as a Home Assistant add-on repository, then install the
-Salt add-on. The image does not clone the private Materium repository during
-build; for rapid development, sync the local Materium checkout into Home
-Assistant storage before starting the add-on:
-
-```bash
-/home/akmod/code/sync-materium-to-ha.sh
-```
-
-The script syncs to `akmod@hearth:/share/materium-dev/materium` and touches
-`/share/materium-dev/restart`. The add-on sees that source as
-`/srv/materium-dev/materium` and runs from it automatically when
-`pyproject.toml` is present. The add-on watches the restart marker and restarts
-only `materium-web` and `materium-worker`.
-
-## Local dev container
-
-For workstation-only testing, use the VS Code launch entry
-`hassio-app-salt: docker compose up`, or run:
+For workstation-only add-on testing, use the shared compose file in
+`/home/akmod/code`:
 
 ```bash
 docker compose up --build --remove-orphans
 ```
-
-The compose file lives in the parent `/home/akmod/code` workspace. It builds
-the add-on image, bind-mounts the local Materium checkout over `/opt/materium`,
-and runs the container in the foreground. Stop it with `Ctrl+C`.

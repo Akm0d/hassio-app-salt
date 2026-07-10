@@ -1,0 +1,19 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Salt",
+        "description": "Connect to the Salt add-on API.",
+        "data": {
+          "url": "API URL"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect to the Salt API."
+    },
+    "abort": {
+      "already_configured": "This Salt API is already configured."
+    }
+  }
+}
