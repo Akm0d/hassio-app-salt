@@ -135,6 +135,11 @@ async def index(_request: web.Request) -> web.Response:
 <script>
 let pendingKeyIds = [];
 
+function setBusy(message) {
+  document.getElementById('health').textContent = message;
+  document.querySelectorAll('button').forEach(button => { button.disabled = true; });
+}
+
 async function api(path, options = {}) {
   const route = String(path).replace(/^\\/+/, '');
   const page = window.location.pathname.replace(/\\/+$/, '');
@@ -157,19 +162,38 @@ function keyActions(status, id) {
   return `<div class="actions">${actions.map(([action, label]) => `<button type="button" data-action="${action}" data-id="${esc(id)}">${label}</button>`).join('')}</div>`;
 }
 async function keyAction(action, id) {
-  await api(`/api/keys/${action}`, {method: 'POST', body: JSON.stringify({ids: [id]})});
-  await load();
+  try {
+    setBusy(`${action === 'accept' ? 'Accepting' : action === 'reject' ? 'Rejecting' : 'Deleting'} ${id}...`);
+    await api(`/api/keys/${action}`, {method: 'POST', body: JSON.stringify({ids: [id]})});
+    await load();
+  } catch (err) {
+    document.getElementById('health').innerHTML = `<span class="error">${esc(err.message)}</span>`;
+    await load();
+  }
 }
 async function acceptAll() {
   if (!pendingKeyIds.length) return;
-  await api('/api/keys/accept', {method: 'POST', body: JSON.stringify({ids: pendingKeyIds})});
-  await load();
+  try {
+    setBusy(`Accepting ${pendingKeyIds.length} pending keys...`);
+    await api('/api/keys/accept', {method: 'POST', body: JSON.stringify({ids: pendingKeyIds})});
+    document.getElementById('health').textContent = `Accepted ${pendingKeyIds.length} keys. Waiting for minions to reconnect...`;
+    await load();
+  } catch (err) {
+    document.getElementById('health').innerHTML = `<span class="error">${esc(err.message)}</span>`;
+    await load();
+  }
 }
 async function refreshGrains() {
-  const result = await api('/api/minions/refresh-grains', {method: 'POST'});
-  const failures = Object.keys(result.errors || {}).length;
-  document.getElementById('health').textContent = `Refreshed ${result.updated?.length || 0} minion grains${failures ? `, ${failures} failed` : ''} - ${result.last_refresh || ''}`;
-  await load();
+  try {
+    setBusy('Refreshing Docker grains...');
+    const result = await api('/api/minions/refresh-grains', {method: 'POST'});
+    const failures = Object.keys(result.errors || {}).length;
+    document.getElementById('health').textContent = `Refreshed ${result.updated?.length || 0} minion grains${failures ? `, ${failures} failed` : ''} - ${result.last_refresh || ''}`;
+    await load();
+  } catch (err) {
+    document.getElementById('health').innerHTML = `<span class="error">${esc(err.message)}</span>`;
+    await load();
+  }
 }
 async function load() {
   try {
@@ -181,7 +205,6 @@ async function load() {
     document.getElementById('health').textContent = `${health.salt || 'Salt'} - ${health.time}`;
     const keyRows = [];
     pendingKeyIds = keys.data.pending || [];
-    document.getElementById('accept-all').disabled = pendingKeyIds.length === 0;
     for (const [status, ids] of Object.entries(keys.data)) {
       for (const id of ids) keyRows.push(`<tr><td><span class="pill">${esc(status)}</span></td><td><code>${esc(id)}</code></td><td>${keyActions(status, id)}</td></tr>`);
     }
@@ -189,6 +212,8 @@ async function load() {
     document.querySelectorAll('button[data-action]').forEach(button => {
       button.addEventListener('click', () => keyAction(button.dataset.action, button.dataset.id));
     });
+    document.querySelectorAll('button').forEach(button => { button.disabled = false; });
+    document.getElementById('accept-all').disabled = pendingKeyIds.length === 0;
     document.getElementById('minions').innerHTML = minions.data.map(row => {
       const grains = row.grains || {};
       const preview = ['os', 'osrelease', 'kernel', 'host', 'fqdn'].filter(k => grains[k] !== undefined).map(k => `${k}: ${grains[k]}`).join('<br>');

@@ -8,6 +8,7 @@ import os
 import pathlib
 import socket
 import subprocess
+import contextlib
 from collections.abc import Iterable
 from datetime import UTC, datetime
 from typing import Any
@@ -125,20 +126,57 @@ def key_status_map(keys: dict[str, list[str]]) -> dict[str, str]:
     return statuses
 
 
+def key_path(status: str, minion_id: str) -> pathlib.Path:
+    """Return the PKI file path for a minion key status."""
+    return MASTER_ROOT / "pki" / "master" / KEY_DIRS[status] / minion_id
+
+
+def move_key(minion_id: str, source_statuses: list[str], target_status: str) -> dict[str, Any]:
+    """Move one key between Salt PKI status directories."""
+    target = key_path(target_status, minion_id)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if target.exists():
+        return {"ok": True, "status": target_status, "changed": False}
+
+    for source_status in source_statuses:
+        source = key_path(source_status, minion_id)
+        if not source.exists():
+            continue
+        os.replace(source, target)
+        return {"ok": True, "status": target_status, "changed": True}
+
+    return {"ok": False, "error": "key not found"}
+
+
+def delete_key(minion_id: str) -> dict[str, Any]:
+    """Delete one key from every Salt PKI status directory."""
+    removed: list[str] = []
+    for status in KEY_DIRS:
+        path = key_path(status, minion_id)
+        with contextlib.suppress(FileNotFoundError):
+            path.unlink()
+            removed.append(status)
+
+    cache = load_grains_cache()
+    if minion_id in cache:
+        cache.pop(minion_id, None)
+        save_grains_cache(cache)
+
+    return {"ok": bool(removed), "removed": sorted(removed)}
+
+
 def manage_keys_sync(action: str, ids: list[str]) -> dict[str, dict[str, Any]]:
     """Accept, reject, or delete Salt minion keys."""
-    flag = {"accept": "-a", "reject": "-r", "delete": "-d"}[action]
     results: dict[str, dict[str, Any]] = {}
     for minion_id in ids:
-        result = run_salt_command(
-            ["salt-key", "-c", str(master_config_dir()), "-y", flag, minion_id, "--out=json"],
-            timeout=30,
-        )
-        results[minion_id] = {
-            "ok": result.returncode == 0,
-            "stdout": result.stdout.strip(),
-            "stderr": result.stderr.strip(),
-        }
+        if action == "accept":
+            results[minion_id] = move_key(minion_id, ["pending", "rejected", "denied"], "accepted")
+        elif action == "reject":
+            results[minion_id] = move_key(minion_id, ["pending", "accepted", "denied"], "rejected")
+        elif action == "delete":
+            results[minion_id] = delete_key(minion_id)
+        else:
+            results[minion_id] = {"ok": False, "error": "unsupported action"}
     return results
 
 
