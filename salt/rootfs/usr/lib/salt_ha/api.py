@@ -161,6 +161,22 @@ function keyActions(status, id) {
   if (status !== 'pending') actions.push(['delete', 'Delete']);
   return `<div class="actions">${actions.map(([action, label]) => `<button type="button" data-action="${action}" data-id="${esc(id)}">${label}</button>`).join('')}</div>`;
 }
+function grainPreview(grains) {
+  const docker = grains.docker || {};
+  const rows = [
+    ['name', grains.hass_name || docker.name],
+    ['version', grains.hass_version],
+    ['type', grains.hass_type],
+    ['image', grains.docker_image || docker.image],
+    ['status', grains.docker_status || docker.status],
+    ['running', grains.docker_running ?? docker.running],
+    ['networks', grains.docker_networks || (Array.isArray(docker.networks) ? docker.networks.join(', ') : '')],
+    ['os', grains.os],
+    ['host', grains.host],
+    ['error', docker.error],
+  ].filter(([, value]) => value !== undefined && value !== null && value !== '');
+  return rows.map(([key, value]) => `${key}: ${esc(value)}`).join('<br>');
+}
 async function keyAction(action, id) {
   try {
     setBusy(`${action === 'accept' ? 'Accepting' : action === 'reject' ? 'Rejecting' : 'Deleting'} ${id}...`);
@@ -216,7 +232,7 @@ async function load() {
     document.getElementById('accept-all').disabled = pendingKeyIds.length === 0;
     document.getElementById('minions').innerHTML = minions.data.map(row => {
       const grains = row.grains || {};
-      const preview = ['os', 'osrelease', 'kernel', 'host', 'fqdn'].filter(k => grains[k] !== undefined).map(k => `${k}: ${grains[k]}`).join('<br>');
+      const preview = grainPreview(grains);
       return `<tr><td><code>${esc(row.id)}</code></td><td><span class="pill">${esc(row.key_status)}</span></td><td>${esc(row.last_refresh || '')}</td><td>${preview || '<span class="muted">No cached grains</span>'}</td></tr>`;
     }).join('') || '<tr><td colspan="4" class="muted">No minions.</td></tr>';
   } catch (err) {

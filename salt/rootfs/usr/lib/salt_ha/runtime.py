@@ -224,6 +224,9 @@ def docker_grains(container_name: str) -> dict[str, Any]:
     labels = config.get("Labels") or {}
     networks = network_settings.get("Networks") or {}
     name = (attrs.get("Name") or "").lstrip("/") or container_name
+    hass_name = labels.get("io.hass.name") or labels.get("org.opencontainers.image.title")
+    hass_version = labels.get("io.hass.version") or labels.get("org.opencontainers.image.version")
+    hass_type = labels.get("io.hass.type")
 
     return {
         "kernel": "Linux",
@@ -234,6 +237,13 @@ def docker_grains(container_name: str) -> dict[str, Any]:
         "id": container_name,
         "host": name,
         "fqdn": name,
+        "docker_image": config.get("Image") or "",
+        "docker_status": state.get("Status"),
+        "docker_running": bool(state.get("Running")),
+        "docker_networks": ",".join(sorted(networks)),
+        "hass_name": hass_name,
+        "hass_version": hass_version,
+        "hass_type": hass_type,
         "docker": {
             "id": attrs.get("Id"),
             "name": name,
@@ -269,6 +279,29 @@ def refresh_grains_sync(timeout: int = 20) -> dict[str, Any]:
             grains = docker_grains(container_name)
         except Exception as exc:
             errors[minion_id] = str(exc)
+            cache[minion_id] = {
+                "id": minion_id,
+                "grains": {
+                    "kernel": "Linux",
+                    "os": "Docker",
+                    "os_family": "Docker",
+                    "virtual": "container",
+                    "virtual_subtype": "Docker",
+                    "id": minion_id,
+                    "host": minion_id,
+                    "fqdn": minion_id,
+                    "docker_status": "missing",
+                    "docker_running": False,
+                    "docker": {
+                        "name": container_name,
+                        "status": "missing",
+                        "running": False,
+                        "error": str(exc),
+                    },
+                },
+                "last_refresh": now,
+                "last_seen": None,
+            }
             continue
         cache[minion_id] = {
             "id": minion_id,
