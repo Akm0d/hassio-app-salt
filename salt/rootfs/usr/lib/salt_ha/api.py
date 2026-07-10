@@ -103,7 +103,9 @@ async def index(_request: web.Request) -> web.Response:
 </main>
 <script>
 async function api(path, options = {}) {
-  const response = await fetch(path, {
+  const base = new URL('.', window.location.href);
+  const target = new URL(String(path).replace(/^\\/+/, ''), base);
+  const response = await fetch(target, {
     headers: {'content-type': 'application/json'},
     ...options,
   });
@@ -170,6 +172,7 @@ def create_app() -> web.Application:
     app.router.add_get("/api/minions", minions)
     app.router.add_get("/api/minions/grains", minion_grains)
     app.router.add_post("/api/minions/refresh-grains", refresh_grains)
+    app.router.add_get("/{tail:.*}", index)
     return app
 
 
