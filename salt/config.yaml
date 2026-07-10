@@ -1,6 +1,6 @@
 ---
 name: Salt
-version: "0.15.1"
+version: "0.15.2"
 slug: salt
 description: Run a persistent Salt master and expose Salt minions to Home Assistant.
 url: https://github.com/Akm0d/hassio-app-salt
@@ -41,7 +41,7 @@ options:
   master:
     log_level: info
     auto_accept: false
-    worker_threads: 50
+    worker_threads: 8
     publish_port: 4505
     ret_port: 4506
 schema:
