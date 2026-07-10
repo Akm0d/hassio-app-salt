@@ -6,6 +6,7 @@ import asyncio
 import json
 import os
 import pathlib
+import socket
 import subprocess
 from collections.abc import Iterable
 from datetime import UTC, datetime
@@ -32,6 +33,7 @@ KEY_BUCKETS = {
     "minions_rejected": "rejected",
     "minions_denied": "denied",
 }
+KEY_DIRS = {target: source for source, target in KEY_BUCKETS.items()}
 
 
 def utc_now() -> str:
@@ -96,18 +98,17 @@ def _ids(value: Any) -> list[str]:
 
 def list_keys_sync() -> dict[str, list[str]]:
     """Return Salt key ids by Home Assistant-friendly status."""
-    result = run_salt_command(
-        ["salt-key", "-c", str(master_config_dir()), "--list-all", "--out=json"],
-        timeout=30,
-    )
-    if result.returncode != 0:
-        raise RuntimeError(result.stderr.strip() or result.stdout.strip() or "salt-key failed")
-    try:
-        payload = json.loads(result.stdout or "{}")
-    except json.JSONDecodeError as exc:
-        raise RuntimeError(result.stdout.strip() or "salt-key returned invalid JSON") from exc
-    raw = payload.get("local", payload)
-    return {target: _ids(raw.get(source, [])) for source, target in KEY_BUCKETS.items()}
+    pki_dir = MASTER_ROOT / "pki" / "master"
+    keys: dict[str, list[str]] = {}
+    for status, dirname in KEY_DIRS.items():
+        key_dir = pki_dir / dirname
+        try:
+            keys[status] = sorted(
+                path.name for path in key_dir.iterdir() if path.is_file() and not path.name.startswith(".")
+            )
+        except FileNotFoundError:
+            keys[status] = []
+    return keys
 
 
 async def list_keys() -> dict[str, list[str]]:
@@ -273,11 +274,26 @@ def write_runtime_config() -> None:
 
 def health_sync() -> dict[str, Any]:
     """Return local add-on health information."""
-    result = run_salt_command(["salt-key", "-c", str(master_config_dir()), "--version"], timeout=10)
+    try:
+        import salt.version
+
+        salt_version = f"salt {salt.version.__version__}"
+    except Exception as exc:
+        salt_version = f"salt version unavailable: {exc}"
+
+    ret_port = int(os.environ.get("SALT_HA_MASTER_RET_PORT", "4506"))
+    master_ready = False
+    try:
+        with socket.create_connection(("127.0.0.1", ret_port), timeout=1):
+            master_ready = True
+    except OSError:
+        master_ready = False
+
     return {
-        "ok": result.returncode == 0,
-        "salt_key": (result.stdout or result.stderr).strip(),
+        "ok": master_ready,
+        "salt": salt_version,
         "master_config": str(master_config_dir() / "master"),
+        "master_ret_port": ret_port,
         "time": utc_now(),
     }
 

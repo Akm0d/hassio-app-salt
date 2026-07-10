@@ -136,7 +136,7 @@ async function load() {
       api('/api/keys'),
       api('/api/minions/grains'),
     ]);
-    document.getElementById('health').textContent = `${health.salt_key || 'Salt'} - ${health.time}`;
+    document.getElementById('health').textContent = `${health.salt || 'Salt'} - ${health.time}`;
     const keyRows = [];
     for (const [status, ids] of Object.entries(keys.data)) {
       for (const id of ids) keyRows.push(`<tr><td><span class="pill">${esc(status)}</span></td><td><code>${esc(id)}</code></td><td>${keyActions(status, id)}</td></tr>`);
